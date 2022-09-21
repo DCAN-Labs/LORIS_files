@@ -1,0 +1,32 @@
+CREATE TABLE `cars2_hf` (
+  `CommentID` varchar(255) NOT NULL DEFAULT '',
+  `UserID` varchar(255) DEFAULT NULL,
+  `Examiner` varchar(255) DEFAULT NULL,
+  `Testdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `Data_entry_completion_status` enum('Incomplete','Complete') NOT NULL DEFAULT 'Incomplete',
+  `Date_taken` date DEFAULT NULL,
+  `Candidate_Age` varchar(255) DEFAULT NULL,
+  `Window_Difference` int(11) DEFAULT NULL,
+  `cat01` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered') DEFAULT NULL,
+  `cat02` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat03` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat04` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat05` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat06` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat07` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat08` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat09` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat10` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat11` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat12` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat13` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat14` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `cat15` enum('1', '1.5', '2', '2.5', '3', '3.5', '4', 'not_answered'),
+  `total_raw_score` int,
+  `severity_group` enum('minimal', 'moderate', 'severe', 'not_answered'),
+  `tscore` tinyint,
+  `percentile` tinyint,
+  PRIMARY KEY (`CommentID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+INSERT INTO test_names (Test_name, Full_name, Sub_group) VALUES ('cars2_hf','Childhood Autism Rating Scale, Second Edition - High-Functioning Version',2);
+INSERT INTO instrument_subtests (`Test_name`, `Subtest_name`, `Description`, `Order_number`) VALUES ('cars2_hf', 'cars2_hf_page1', 'Items', '1');
