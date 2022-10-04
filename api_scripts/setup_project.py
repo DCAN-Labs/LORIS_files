@@ -1,6 +1,5 @@
 from loris_class import Loris
 
-subjects = ['SUB-10009-01', 'SUB-20048-01', 'SUB-10001-01']
 forms = ["developmental_history_questionnaire",
     "medical_history_questionnaire",
     "family_medical_history_questionnaire",
@@ -47,7 +46,6 @@ forms = ["developmental_history_questionnaire",
 
 loris = Loris()
 loris.get_form_metadata(forms=forms)
-
-loris.create_all_instrument_files()
+loris.get_all_subject_ids()
 # loris.commit()
 del loris

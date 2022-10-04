@@ -1,5 +1,6 @@
+from re import sub
 import mysql.connector
-from config import config
+from config import config, token
 import datetime
 import requests
 import json
@@ -10,6 +11,7 @@ class Loris:
     def __init__(self):
         self.cnx = mysql.connector.connect(**config)
         self.cursor = self.cnx.cursor(dictionary=True)
+        self.token = token
         self.field_type_lookup = {
             'radio': 'enum',
             'text': 'text',
@@ -134,7 +136,7 @@ class Loris:
         form = kwargs.get('form')
         # subjects = kwargs.get('subjects')
         data = {
-            'token': '43E50FE84102CCBB71217A60BE4F9E6D',
+            'token': f'{self.token}',
             'content': 'record',
             'action': 'export',
             'format': 'json',
@@ -164,7 +166,7 @@ class Loris:
     def get_form_metadata(self, **kwargs):
         forms = kwargs.get('forms')
         data = {
-            'token': '43E50FE84102CCBB71217A60BE4F9E6D',
+            'token': f'{self.token}',
             'content': 'metadata',
             'format': 'json',
             'returnFormat': 'json',
@@ -178,8 +180,32 @@ class Loris:
             json.dump(self.metadata, file)
 
     def get_all_subject_ids(self):
-        pass
+        data = {
+            'token': f'{self.token}',
+            'content': 'record',
+            'action': 'export',
+            'format': 'json',
+            'type': 'flat',
+            'csvDelimiter': '',
+            'fields[0]': 'record_id',
+            'rawOrLabel': 'raw',
+            'rawOrLabelHeaders': 'raw',
+            'exportCheckboxLabel': 'false',
+            'exportSurveyFields': 'false',
+            'exportDataAccessGroups': 'false',
+            'returnFormat': 'json'
+        }
 
+        r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
+        print('HTTP Status: ' + str(r.status_code))
+        records = r.json()
+        subjects = []
+        for record in records:
+            subject = record['record_id']
+            if(subject not in subjects and 'SUB' in subject and subject[-1] != 'T'):
+                subjects.append(subject)
+        print(subjects)
+        self.subjects = subjects
 
     def make_enum_array(self, options, field_type):
 
