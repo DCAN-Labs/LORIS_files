@@ -91,13 +91,13 @@ class NDB_BVL_Instrument_adhd_rs_home extends NDB_BVL_Instrument
         $this->_addMetadataFields();
 
         $this->addHeader("Inattention");
-            $this->form->addElement('text','inatt_raw',"Inattention Raw Score");
-            $this->form->addElement('text','inatt_sx',"Inattention SX");
-            $this->form->addElement('text','inatt_tscore',"Innatention T-Score");
+            $this->form->addElement('static','inatt_raw',"Inattention Raw Score");
+            $this->form->addElement('static','inatt_sx',"Inattention SX");
+            $this->form->addElement('static','inatt_tscore',"Innatention T-Score");
         $this->addHeader("Hyperactivity");
-            $this->form->addElement('text','hyp_raw',"Hyperactivity Raw Score");
-            $this->form->addElement('text','hyp_sx',"Hyperactivity SX");
-            $this->form->addElement('text','hyp_tscore',"Hyperactivity T-Score");
+            $this->form->addElement('static','hyp_raw',"Hyperactivity Raw Score");
+            $this->form->addElement('static','hyp_sx',"Hyperactivity SX");
+            $this->form->addElement('static','hyp_tscore',"Hyperactivity T-Score");
     }
 
 
@@ -130,7 +130,7 @@ class NDB_BVL_Instrument_adhd_rs_home extends NDB_BVL_Instrument
         $this->form->addElement('select', 'q17', "Leaves seat in situations when remaining seated is expected", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
         $this->form->addElement('select', 'q18', "Runs about or climbs in situations where it is inappropirate", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
         $this->form->addElement('select', 'q19', "Unable to play or engage in leisure activities quietly", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q20', ""On the go" acts as if "driven by a motor"", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'q20', "'On the go' acts as if 'driven by a motor'", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
         $this->form->addElement('select', 'q21', "Talks excessively", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
         $this->form->addElement('select', 'q22', "Blurts our an answer before a question has been completed", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
         $this->form->addElement('select', 'q23', "Has difficulty waiting their turn (e.g., while waiting in line)", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));

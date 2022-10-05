@@ -3,7 +3,7 @@ import requests
 from random import randint
 import json
 import mysql.connector
-from config import config
+from config import config, token
 import datetime 
 
 cnx = mysql.connector.connect(**config)
@@ -42,6 +42,7 @@ def generate_cand_id():
         cand_id = randint(100000, 999999)
         if cand_id not in existing_cand_ids:
             break
+        existing_cand_ids.append(cand_id)
     return cand_id
 
 def get_cand_info(record):
@@ -50,8 +51,8 @@ def get_cand_info(record):
         "PSCID": record['record_id'],
         "DoB": jitter_dob(record['child_dob']),
         "Sex": sex_lookup[record['child_sex']],
-        "RegistrationCenterID": int(record['research_site']) + 19,
-        "RegistrationProjectID": 3,
+        "RegistrationCenterID": int(record['research_site']) + 1,
+        "RegistrationProjectID": 1,
         "Active": 'Y',
         "Date_active": record['date_phone_screen'],
         "RegisteredBy": 'redcapTransfer',
@@ -64,7 +65,7 @@ def get_cand_info(record):
     return candidate_info
 
 data = {
-    'token': '43E50FE84102CCBB71217A60BE4F9E6D',
+    'token': token,
     'content': 'record',
     'action': 'export',
     'format': 'json',
@@ -86,7 +87,7 @@ data = {
 r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
 print('HTTP Status: ' + str(r.status_code))
 records = r.json()
-with open('response.json', 'w+') as file:
+with open('outputs/response.json', 'w+') as file:
     json.dump(records, file)
 
 for record in records:
@@ -94,6 +95,6 @@ for record in records:
         cursor.execute(add_candidate, get_cand_info(record))
 
 
-# cnx.commit()
+cnx.commit()
 cursor.close()
 cnx.close()

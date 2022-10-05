@@ -12,16 +12,6 @@ class Loris:
         self.cnx = mysql.connector.connect(**config)
         self.cursor = self.cnx.cursor(dictionary=True)
         self.token = token
-        self.field_type_lookup = {
-            'radio': 'enum',
-            'text': 'text',
-            'descriptive':'text',
-            'dropdown':'enum',
-            'notes':'text',
-            'calc':'int',
-            'yesno':'enum',
-            'checkbox':'text'
-            }
 
     def __del__(self):
         self.cnx.close()
@@ -116,6 +106,7 @@ class Loris:
         subproject_id = kwargs.get('subproject_id')
         visit = kwargs.get('visit')
         today = datetime.date.today().strftime("%Y-%m-%d")
+        visit_date = kwargs.get('visit_date', today)
         scan_done = kwargs.get('scan_done', 'N')
         self.get_candidate_info(subjects=subjects)
         for cand in self.candidates:
@@ -124,7 +115,7 @@ class Loris:
             project_id = cand['RegistrationProjectID']
 
             columns = 'CandID, CenterID, ProjectID, Visit_label, SubprojectID, Current_stage, Date_stage_change, Visit, Date_visit, Date_active, RegisteredBy, UserID, Date_registered, Testdate, Scan_done, languageID'
-            values = f"{cand_id}, {center_id}, {project_id}, '{visit}', {subproject_id}, 'Visit', '{today}', 'In Progress', '{today}', '{today}', 'redcapTransfer', 'redcapTransfer', '{today}', '{today}', '{scan_done}', 1"
+            values = f"{cand_id}, {center_id}, {project_id}, '{visit}', {subproject_id}, 'Visit', '{visit_date}', 'In Progress', '{visit_date}', '{visit_date}', 'redcapTransfer', 'redcapTransfer', '{visit_date}', '{visit_date}', '{scan_done}', 1"
             print(values)
             self.insert('session', columns, values)
 
@@ -175,7 +166,7 @@ class Loris:
         r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
         print('HTTP Status: ' + str(r.status_code))
         records = r.json()
-        self.metadata = { record['form_name']: { field['field_name']: { 'field_type': field['field_type'], 'field_label': field['field_label'], 'select_choices_or_calculations': field['select_choices_or_calculations']} for field in records if field['form_name'] == record['form_name']} for record in records if record['form_name'] in forms}
+        self.metadata = { record['form_name']: { field['field_name']: { 'field_type': field['field_type'], 'field_label': field['field_label'], 'select_choices_or_calculations': field['select_choices_or_calculations'], 'text_validation_type_or_show_slider_number': field['text_validation_type_or_show_slider_number']} for field in records if field['form_name'] == record['form_name']} for record in records if record['form_name'] in forms}
         with open('outputs/form.json', 'w+') as file:
             json.dump(self.metadata, file)
 
@@ -207,9 +198,33 @@ class Loris:
         print(subjects)
         self.subjects = subjects
 
-    def make_enum_array(self, options, field_type):
+    def field_type_lookup(self, question):
+        field_type = ''
+        if (question['text_validation_type_or_show_slider_number'] == 'date_mdy'):
+            field_type = 'date'
+        elif (question['text_validation_type_or_show_slider_number'] == 'integer'):
+            field_type = 'int'
+        elif (question['text_validation_type_or_show_slider_number'] == 'number'):
+            field_type = 'varchar'
+        else:
+            field_type_lookup = {
+                'radio': 'enum',
+                'text': 'text',
+                'descriptive':'text',
+                'dropdown':'enum',
+                'notes':'text',
+                'calc':'int',
+                'yesno':'enum',
+                'checkbox':'text'
+                }
+            field_type = field_type_lookup[question['field_type']]
+        return field_type
 
-        if self.field_type_lookup[field_type] == 'enum':
+    def make_enum_array(self, question):
+        options = question['select_choices_or_calculations']
+        field_type = question['field_type']
+
+        if self.field_type_lookup(question) == 'enum':
             options_loris = []
             options_sql = []
             if field_type == 'yesno':
@@ -249,12 +264,12 @@ class Loris:
         var_data_object = [
             {
                 "page": 1,
-                "var_type": self.field_type_lookup[values[value]['field_type']],
+                "var_type": self.field_type_lookup(values[value]),
                 "status":'',
                 "front_end": True,
                 "name": value,
                 "text": values[value]['field_label'],
-                "enum_array": self.make_enum_array(values[value]['select_choices_or_calculations'], values[value]['field_type'])
+                "enum_array": self.make_enum_array(values[value])
             }
             for i, value in enumerate(values)]
 
@@ -270,7 +285,7 @@ class Loris:
     def create_table_lines(self, question, values):
         # `q108` enum('0', '1', '2', '3', 'not_answered') DEFAULT NULL,
         field_type = values['field_type']
-        sql_type = self.field_type_lookup[field_type]
+        sql_type = self.field_type_lookup(values)
         if sql_type == 'enum':
             enums = 'enum('
             if field_type == 'yesno':
@@ -325,3 +340,35 @@ class Loris:
                 if self.metadata[inst][question]['field_type'] not in field_types:
                     field_types.append(self.metadata[inst][question]['field_type'])
         print(field_types)
+
+    def get_participant_status(self):
+        pass
+
+    def drop_tables(self, **kwargs):
+        tables = kwargs.get('tables')
+        for table in tables:
+            self.cursor.execute(f"DROP TABLE IF EXISTS {table}")
+
+    def get_forms(self):
+        data = {
+            'token': self.token,
+            'content': 'formEventMapping',
+            'format': 'json',
+            'arms[0]': '1',
+            'returnFormat': 'json'
+        }
+        r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
+        print('HTTP Status: ' + str(r.status_code))
+        records = r.json()
+
+        visits = ['visit_1', 'visit_2', 'mri_visit']
+
+        self.forms = { visit: [ record['form'] for record in records if visit in record['unique_event_name'] ] for visit in visits }
+
+        # self.forms = { record['unique_event_name']: [ value['form'] for value in records if value['unique_event_name'] == record['unique_event_name'] ] for record in records }
+
+        # self.forms = [ record['form'] for record in records if visit in record['unique_event_name'] ]
+        print(json.dumps(self.forms, indent=4))
+
+        with open('outputs/response.json', 'w+') as file:
+            json.dump(records, file)
