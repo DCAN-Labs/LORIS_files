@@ -1,4 +1,5 @@
 from loris_class import Loris
+import json
 
 forms = ["developmental_history_questionnaire",
     "medical_history_questionnaire",
@@ -77,7 +78,8 @@ subjects1 = ['SUB-10001-01', 'SUB-10002-01', 'SUB-10003-01', 'SUB-10004-01', 'SU
 subjects2 = ['SUB-20001-01', 'SUB-20001-02', 'SUB-20002-01', 'SUB-20003-01', 'SUB-20004-01', 'SUB-20005-01', 'SUB-20006-01', 'SUB-20007-01', 'SUB-20008-01', 'SUB-20009-01', 'SUB-20010-01', 'SUB-20011-01', 'SUB-20012-01', 'SUB-20013-01', 'SUB-20014-01', 'SUB-20015-01', 'SUB-20016-01', 'SUB-20017-01', 'SUB-20018-01', 'SUB-20019-01', 'SUB-20020-01', 'SUB-20021-01', 'SUB-20022-01', 'SUB-20023-01', 'SUB-20024-01', 'SUB-20025-01', 'SUB-20026-01', 'SUB-20027-01', 'SUB-20028-01', 'SUB-20029-01', 'SUB-20030-01', 'SUB-20031-01', 'SUB-20032-01', 'SUB-20033-01', 'SUB-20034-01', 'SUB-20034-02', 'SUB-20035-01', 'SUB-20036-01', 'SUB-20037-01', 'SUB-20038-01', 'SUB-20039-01', 'SUB-20040-01', 'SUB-20041-01', 'SUB-20042-01', 'SUB-20043-01', 'SUB-20044-01', 'SUB-20045-01', 'SUB-20046-01', 'SUB-20047-01', 'SUB-20048-01', 'SUB-20048-02', 'SUB-20048-03', 'SUB-20049-01', 'SUB-20050-01', 'SUB-20051-01', 'SUB-20052-01', 'SUB-20053-01', 'SUB-20054-01', 'SUB-20054-02', 'SUB-20055-01', 'SUB-20056-01', 'SUB-20057-01', 'SUB-20058-01', 'SUB-20059-01', 'SUB-20060-01', 'SUB-20061-01', 'SUB-20062-01', 'SUB-20063-01', 'SUB-20064-01', 'SUB-20065-01', 'SUB-20066-01', 'SUB-20067-01', 'SUB-20068-01', 'SUB-20068-02']
 
 loris = Loris()
-# loris.get_form_metadata(forms=forms)
-# loris.create_all_instrument_files()
-loris.get_forms()
+loris.get_form_metadata(forms=forms)
+loris.create_all_instrument_files()
+# loris.get_forms()
+
 del loris

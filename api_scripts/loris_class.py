@@ -1,4 +1,3 @@
-from re import sub
 import mysql.connector
 from config import config, token
 import datetime
@@ -205,17 +204,17 @@ class Loris:
         elif (question['text_validation_type_or_show_slider_number'] == 'integer'):
             field_type = 'int'
         elif (question['text_validation_type_or_show_slider_number'] == 'number'):
-            field_type = 'varchar'
+            field_type = 'varchar(255)'
         else:
             field_type_lookup = {
                 'radio': 'enum',
-                'text': 'text',
-                'descriptive':'text',
+                'text': 'varchar(255)',
+                'descriptive':'varchar(255)',
                 'dropdown':'enum',
                 'notes':'text',
                 'calc':'int',
                 'yesno':'enum',
-                'checkbox':'text'
+                'checkbox':'varchar(255)'
                 }
             field_type = field_type_lookup[question['field_type']]
         return field_type
@@ -246,7 +245,7 @@ class Loris:
 
     def create_instrument_php(self, **kwargs):
         form = kwargs.get('form')
-        field_type = {'text': ['varchar', 'int', 'char', 'tinyint', 'smallint', 'mediumint', 'bigint', 'decimal', 'dec',
+        field_type = {'text': ['varchar', 'varchar(255)', 'int', 'char', 'tinyint', 'smallint', 'mediumint', 'bigint', 'decimal', 'dec',
                        'float', 'double', 'tinytext'],
               'textarea': ['text', 'mediumtext', 'longtext'],
               'select': 'enum', 'date': 'date'}
@@ -305,32 +304,41 @@ class Loris:
         form = kwargs.get('form')
         file_output = kwargs.get('file_output')
         create_table = kwargs.get('create_table')
+        drop = kwargs.get('drop', False)
         
+        table_line_start = f"CREATE TABLE `{form}` (\n"
+        meta_fields = "  `CommentID` varchar(255) NOT NULL DEFAULT '',\n  `UserID` varchar(255) DEFAULT NULL,\n  `Examiner` varchar(255) DEFAULT NULL,  `Testdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,  `Data_entry_completion_status` enum('Incomplete','Complete') NOT NULL DEFAULT 'Incomplete',`Date_taken` date DEFAULT NULL,  `Candidate_Age` varchar(255) DEFAULT NULL,  `Window_Difference` int(11) DEFAULT NULL,"
+        table_line_end = """  PRIMARY KEY (`CommentID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8;\n"""
+        test_name_insert = f"INSERT IGNORE INTO test_names (Test_name, Full_name, Sub_group) VALUES ('{form}','{form}',1);"
+        sql_lines = ''
+        for question in self.metadata[form]:
+            sql_line = self.create_table_lines(question, self.metadata[form][question])
+            if sql_line:
+                sql_lines += sql_line
+        sql_string = table_line_start + meta_fields + sql_lines + table_line_end + test_name_insert
+
         if(file_output):
-            table_line_start = f"CREATE TABLE `{form}` (\n"
-            meta_fields = "  `CommentID` varchar(255) NOT NULL DEFAULT '',\n  `UserID` varchar(255) DEFAULT NULL,\n  `Examiner` varchar(255) DEFAULT NULL,  `Testdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,  `Data_entry_completion_status` enum('Incomplete','Complete') NOT NULL DEFAULT 'Incomplete',`Date_taken` date DEFAULT NULL,  `Candidate_Age` varchar(255) DEFAULT NULL,  `Window_Difference` int(11) DEFAULT NULL,"
-            table_line_end = """  PRIMARY KEY (`CommentID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8;\n"""
-            test_name_insert = f"INSERT INTO test_names (Test_name, Full_name, Sub_group) VALUES ('{form}','{form}',1);"
-            
             sqlfile = open(f'outputs/sql/{form}.sql', 'w')
-
-            sqlfile.write(table_line_start)
-            sqlfile.write(meta_fields)
-            for question in self.metadata[form]:
-                sql_line = self.create_table_lines(question, self.metadata[form][question])
-                if sql_line:
-                    sqlfile.write(sql_line)
-            sqlfile.write(table_line_end)
-            sqlfile.write(test_name_insert)
-
+            sqlfile.write(sql_string)
             sqlfile.close()
+
         if(create_table):
-            pass
+            while(self.cnx.next_result()):
+                pass
+            try:
+                if drop:
+                    self.cursor.execute(f"DROP TABLE IF EXISTS {form}")
+                self.cursor.execute(sql_string)
+                print(f"Successfully created {form} table.")
+            except Exception as e:
+                print(f"Error creating table {form}:", e)
+            
+
 
     def create_all_instrument_files(self):
         for inst in self.metadata:
             self.create_instrument_php(form=inst)
-            self.create_instrument_sql(form=inst, file_output=True)
+            self.create_instrument_sql(form=inst, file_output=True, create_table=True, drop=True)
 
     def parse_metadata(self):
         # utility function to see what data types are in use
@@ -364,11 +372,3 @@ class Loris:
         visits = ['visit_1', 'visit_2', 'mri_visit']
 
         self.forms = { visit: [ record['form'] for record in records if visit in record['unique_event_name'] ] for visit in visits }
-
-        # self.forms = { record['unique_event_name']: [ value['form'] for value in records if value['unique_event_name'] == record['unique_event_name'] ] for record in records }
-
-        # self.forms = [ record['form'] for record in records if visit in record['unique_event_name'] ]
-        print(json.dumps(self.forms, indent=4))
-
-        with open('outputs/response.json', 'w+') as file:
-            json.dump(records, file)
