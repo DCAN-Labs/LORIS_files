@@ -82,42 +82,80 @@ class Loris:
         age_max_days = kwargs.get('age_max_days', 99999)
         active = kwargs.get('active', 'Y')
         stage = kwargs.get('stage', 'Visit')
-        center_id = kwargs.get('center_id')
-        first_visit = kwargs.get('first_visit')
-        instrument_order = kwargs.get('instrument_order')
+        center_id = kwargs.get('center_id', 'NULL')
+        first_visit = kwargs.get('first_visit', 'NULL')
+        instrument_order = kwargs.get('instrument_order', 'NULL')
 
         columns = 'Test_name, AgeMinDays, AgeMaxDays, Active, Stage, SubprojectID, Visit_label, CenterID, firstVisit, instr_order'
-        values = f'{test}, {age_min_days}, {age_max_days}, {active}, {stage}, {subproject}, {visit}, {center_id}, {first_visit}, {instrument_order}'
+        values = f"'{test}', {age_min_days}, {age_max_days}, '{active}', '{stage}', {subproject}, '{visit}', {center_id}, {first_visit}, {instrument_order}"
         self.insert('test_battery', columns, values)
 
     def get_candidate_info(self, **kwargs):
-        subjects = kwargs.get('subjects')
-
+        subject = kwargs.get('subject')
         columns = 'PSCID, CandID, RegistrationCenterID, RegistrationProjectID'
-        in_statement = '\', \''.join(str(sub) for sub in subjects)
-        condition = f"PSCID IN ('{in_statement}')"
-        print(condition)
+        condition = f"PSCID = '{subject}'"
         self.query('candidate', columns, condition)
-        self.candidates = self.result
+        return self.result[0]
         
     def add_session(self, **kwargs):
-        subjects = kwargs.get('subjects') # should be a list
+        subject = kwargs.get('subject')
         subproject_id = kwargs.get('subproject_id')
         visit = kwargs.get('visit')
         today = datetime.date.today().strftime("%Y-%m-%d")
         visit_date = kwargs.get('visit_date', today)
         scan_done = kwargs.get('scan_done', 'N')
-        self.get_candidate_info(subjects=subjects)
-        for cand in self.candidates:
-            cand_id = cand['CandID']
-            center_id = cand['RegistrationCenterID']
-            project_id = cand['RegistrationProjectID']
+        cand = self.get_candidate_info(subject=subject)
 
-            columns = 'CandID, CenterID, ProjectID, Visit_label, SubprojectID, Current_stage, Date_stage_change, Visit, Date_visit, Date_active, RegisteredBy, UserID, Date_registered, Testdate, Scan_done, languageID'
-            values = f"{cand_id}, {center_id}, {project_id}, '{visit}', {subproject_id}, 'Visit', '{visit_date}', 'In Progress', '{visit_date}', '{visit_date}', 'redcapTransfer', 'redcapTransfer', '{visit_date}', '{visit_date}', '{scan_done}', 1"
-            print(values)
-            self.insert('session', columns, values)
+        cand_id = cand['CandID']
+        center_id = cand['RegistrationCenterID']
+        project_id = cand['RegistrationProjectID']
 
+        columns = 'CandID, CenterID, ProjectID, Visit_label, SubprojectID, Current_stage, Date_stage_change, Visit, Date_visit, Date_active, RegisteredBy, UserID, Date_registered, Testdate, Scan_done, languageID'
+        values = f"{cand_id}, {center_id}, {project_id}, '{visit}', {subproject_id}, 'Visit', '{visit_date}', 'In Progress', '{visit_date}', '{visit_date}', 'redcapTransfer', 'redcapTransfer', '{visit_date}', '{visit_date}', '{scan_done}', 1"
+        print(values)
+        # self.insert('session', columns, values)
+
+    def get_active_visits(self, **kwargs):
+        subject = kwargs.get('subject')
+        data = {
+            'token': self.token,
+            'content': 'record',
+            'action': 'export',
+            'format': 'json',
+            'type': 'flat',
+            'csvDelimiter': '',
+            'records[0]': subject,
+            'rawOrLabel': 'raw',
+            'rawOrLabelHeaders': 'raw',
+            'exportCheckboxLabel': 'false',
+            'exportSurveyFields': 'false',
+            'exportDataAccessGroups': 'false',
+            'returnFormat': 'json',
+            'dateRangeBegin': ''
+        }
+        r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
+        print('HTTP Status: ' + str(r.status_code))
+        records = r.json()
+
+        visits = {'visit_1': False, 'visit_2': False, 'mri_visit': False}
+        for record in records:
+            if 'visit_1' in record['redcap_event_name']:
+                visits['visit_1'] = True
+            if 'visit_2' in record['redcap_event_name']:
+                visits['visit_2'] = True
+            if 'mri_visit' in record['redcap_event_name']:
+                visits['mri_visit'] = True
+        active_visits = [ visit for visit in visits.keys() if visits[visit]]
+        return active_visits
+
+    def add_sessions(self, **kwargs):
+        subjects = kwargs.get('subjects')
+
+        for subject in subjects:
+            visits = self.get_active_visits(subject=subject)
+            subproject_id = 1
+            for visit in visits:
+                self.add_session(subject=subject, subproject_id=subproject_id, visit=visit)
 
     def start_visit(self):
         print("Please run assign_missing_instruments.php to start visits")
@@ -267,7 +305,7 @@ class Loris:
                 "status":'',
                 "front_end": True,
                 "name": value,
-                "text": values[value]['field_label'],
+                "text": values[value]['field_label'].replace('"', "'"),
                 "enum_array": self.make_enum_array(values[value])
             }
             for i, value in enumerate(values)]
@@ -332,13 +370,17 @@ class Loris:
                 print(f"Successfully created {form} table.")
             except Exception as e:
                 print(f"Error creating table {form}:", e)
-            
 
-
-    def create_all_instrument_files(self):
+    def create_all_instrument_files(self, **kwargs):
+        exclude = kwargs.get('exclude', [])
+        php = kwargs.get('php', False)
+        sql = kwargs.get('sql', False)
+        self.get_all_form_metadata(exclude=exclude)
         for inst in self.metadata:
-            self.create_instrument_php(form=inst)
-            self.create_instrument_sql(form=inst, file_output=True, create_table=True, drop=True)
+            if php:
+                self.create_instrument_php(form=inst)
+            if sql:
+                self.create_instrument_sql(form=inst, file_output=False, create_table=True, drop=True)
 
     def parse_metadata(self):
         # utility function to see what data types are in use
@@ -357,7 +399,8 @@ class Loris:
         for table in tables:
             self.cursor.execute(f"DROP TABLE IF EXISTS {table}")
 
-    def get_forms(self):
+    def get_forms(self, **kwargs):
+        exclude = kwargs.get('exclude', [])
         data = {
             'token': self.token,
             'content': 'formEventMapping',
@@ -371,4 +414,36 @@ class Loris:
 
         visits = ['visit_1', 'visit_2', 'mri_visit']
 
-        self.forms = { visit: [ record['form'] for record in records if visit in record['unique_event_name'] ] for visit in visits }
+        self.forms = { visit: [ record['form'] for record in records if visit in record['unique_event_name'] and  record['form'] not in exclude] for visit in visits }
+
+    def list_all_forms(self, **kwargs):
+        exclude = kwargs.get('exclude', [])
+        self.get_forms(exclude=exclude)
+        forms = []
+        for visit in self.forms:
+            for form in self.forms[visit]:
+                if form not in forms:
+                    forms.append(form)
+        return forms
+
+    def get_all_form_metadata(self, **kwargs):
+        exclude = kwargs.get('exclude', [])
+        self.get_form_metadata(forms=self.list_all_forms(exclude=exclude))
+
+    def populate_visits(self, **kwargs):
+        subprojects = kwargs.get('subprojects')
+        for visit in self.forms:
+            for form in self.forms[visit]:
+                for subproject in subprojects:
+                    try:
+                        self.add_to_test_battery(instrument=form, subproject=subproject, visit=visit)
+                        print(f'successfully added instrument {form} to test_battery')
+                    except Exception as e:
+                        print(f'error adding instrument {form} to test_battery: ', e)
+
+    def populate_all_visits(self, **kwargs):
+        subprojects = kwargs.get('subprojects')
+        visit_rels = kwargs.get('visit_rels')
+        for subproject in subprojects:
+            for visit_rel in visit_rels:
+                self.populate_visits(visit_rel=visit_rel, subproject=subproject)
