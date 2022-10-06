@@ -1,0 +1,1 @@
+for file in /mnt/c/Users/tikal004/Desktop/DCAN/LORIS/subpop/LORIS_instruments/api_scripts/outputs/php/*; do ls "$file" | php lorisform_parser.php; done 2>> /mnt/c/Users/tikal004/Desktop/DCAN/LORIS/subpop/LORIS_instruments/api_scripts/outputs/outputerror.txt
