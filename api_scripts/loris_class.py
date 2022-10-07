@@ -4,6 +4,7 @@ import datetime
 import requests
 import json
 from jinja2 import Template
+import traceback
 
 class Loris:
 
@@ -153,44 +154,13 @@ class Loris:
 
         for subject in subjects:
             visits = self.get_active_visits(subject=subject)
-            subproject_id = 1
             for visit in visits:
+                subproject_id = 1 if 'SUB-1' in subject else 2
                 self.add_session(subject=subject, subproject_id=subproject_id, visit=visit)
 
     def start_visit(self):
         print("Please run assign_missing_instruments.php to start visits")
 
-    def populate_instrument(self, **kwargs):
-        form = kwargs.get('form')
-        # subjects = kwargs.get('subjects')
-        data = {
-            'token': f'{self.token}',
-            'content': 'record',
-            'action': 'export',
-            'format': 'json',
-            'type': 'flat',
-            'csvDelimiter': '',
-            'fields[0]': 'record_id',
-            'forms[0]': f'{form}',
-            'rawOrLabel': 'raw',
-            'rawOrLabelHeaders': 'raw',
-            'exportCheckboxLabel': 'false',
-            'exportSurveyFields': 'false',
-            'exportDataAccessGroups': 'false',
-            'returnFormat': 'json'
-        }
-        r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
-        print('HTTP Status: ' + str(r.status_code))
-        records = r.json()
-        records = [record for record in records if int(record[f'{form}_complete'] or 0)]
-        with open('outputs/response.json', 'w+') as file:
-            json.dump(records, file)
-
-        #map form to instrument and insert
-        columns = ''
-        values = ''
-        #self.insert(instrument, columns, values)
-    
     def get_form_metadata(self, **kwargs):
         forms = kwargs.get('forms')
         data = {
@@ -379,7 +349,7 @@ class Loris:
             if php:
                 self.create_instrument_php(form=inst)
             if sql:
-                self.create_instrument_sql(form=inst, file_output=False, create_table=True, drop=True)
+                self.create_instrument_sql(form=inst, file_output=True, create_table=True, drop=True)
 
     def parse_metadata(self):
         # utility function to see what data types are in use
@@ -430,7 +400,7 @@ class Loris:
         self.get_form_metadata(forms=self.list_all_forms(exclude=exclude))
 
     def populate_visits(self, **kwargs):
-        subprojects = kwargs.get('subprojects')
+        subprojects = kwargs.get('subprojects', [1,2])
         for visit in self.forms:
             for form in self.forms[visit]:
                 for subproject in subprojects:
@@ -440,13 +410,129 @@ class Loris:
                     except Exception as e:
                         print(f'error adding instrument {form} to test_battery: ', e)
 
-    def populate_all_visits(self, **kwargs):
-        subprojects = kwargs.get('subprojects')
-        visit_rels = kwargs.get('visit_rels')
-        for subproject in subprojects:
-            for visit_rel in visit_rels:
-                self.populate_visits(visit_rel=visit_rel, subproject=subproject)
-
     def add_all_sessions(self):
         self.get_all_subject_ids()
         self.add_sessions(subjects=self.subjects)
+
+    def get_candids_from_subjects(self, **kwargs):
+        subjects = kwargs.get('subjects')
+
+        conditon = "PSCID IN ('" + ("', '").join(subjects) + "')"
+        self.query('candidate', 'PSCID, CandID', conditon)
+
+        self.candid_dict = {record['PSCID']: record['CandID'] for record in self.result}
+    
+    def get_session_info(self, **kwargs):
+        self.query('session', 'ID, CandID, Visit_label', 'CandID')
+        result = self.result
+        sessions = { record['CandID']: {session['Visit_label']: session['ID'] for session in result if record['CandID'] == session['CandID'] } for record in result }
+        self.sessions = sessions
+
+    def assemble_commentid(self, **kwargs):
+        pscid = kwargs.get('subject')
+        visit = kwargs.get('visit')
+        candid = self.candid_dict[pscid]
+        session_id = self.sessions[candid][visit]
+        
+        commentid = f"{candid}{pscid}{session_id}"
+        return commentid
+
+    def redcap_event_to_visit(self, **kwargs):
+        event = kwargs.get('event')
+        if 'visit_1' in event:
+            return 'visit_1'
+        elif 'visit_2' in event:
+            return 'visit_2'
+        elif 'mri_visit' in event:
+            return 'mri_visit'
+        else:
+            print(f'Failed to parse event: {event}')
+            return ''
+
+    def update(self, **kwargs):
+            table = kwargs.get('table')
+            record = kwargs.get('record')
+            comment_id = kwargs.get('comment_id')
+            exclude = ['record_id', 'redcap_event_name', 'redcap_repeat_instrument', 'redcap_repeat_instance', f'{table}_complete']
+            keys = [key for key in list(record.keys()) if key not in exclude]
+            sql = f"UPDATE {table} SET "
+            for key in keys:
+                sql += f"{key}={self.prepare_update_value(record[key])}, "
+            sql = sql[:-2]
+            sql += f" WHERE CommentID LIKE '{comment_id}%'"
+            self.cursor.execute(sql)
+            print(f"Updated {comment_id}")
+
+    def prepare_update_value(self, value):
+        if value == "":
+            return "NULL"
+        elif isinstance(value, str):
+            string = value.replace("'", "\\'")
+            return f"'{string}'"
+        else:
+            return f"'{value}'"
+
+    def populate_instrument(self, **kwargs):
+        form = kwargs.get('form')
+        # subjects = kwargs.get('subjects')
+        data = {
+            'token': f'{self.token}',
+            'content': 'record',
+            'action': 'export',
+            'format': 'json',
+            'type': 'flat',
+            'csvDelimiter': '',
+            'fields[0]': 'record_id',
+            'forms[0]': f'{form}',
+            'rawOrLabel': 'raw',
+            'rawOrLabelHeaders': 'raw',
+            'exportCheckboxLabel': 'false',
+            'exportSurveyFields': 'false',
+            'exportDataAccessGroups': 'false',
+            'returnFormat': 'json'
+        }
+        r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
+        print('HTTP Status: ' + str(r.status_code))
+        records = r.json()
+        records = [record for record in records if int(record[f'{form}_complete'] or 0)]
+        # records = {record['record_id']: record for record in records if int(record[f'{form}_complete'] or 0)}
+        with open('outputs/response.json', 'w+') as file:
+            json.dump(records, file, indent=4)
+
+        for record in records:
+            event = record['redcap_event_name']
+            subject = record['record_id']
+            if 'teac' in event:
+                if ('T' not in subject or 'SUB' not in subject):
+                    with open("outputs/populate_inst_errors.txt", "a") as file:
+                        file.write(f"Unexpected Record: {form}, {subject}\n")
+                else:
+                    subject = subject[:12]
+                    try:
+                        comment_id = self.assemble_commentid(subject=subject, visit=self.redcap_event_to_visit(event=event))
+                        self.update(table=form, record=record, comment_id=comment_id)
+                    except Exception:
+                        print(f"Failed to update {comment_id}")
+                        with open("outputs/populate_inst_errors.txt", "a") as file:
+                            file.write(f"Error creating record: {form}, {subject} error:{traceback.format_exc()}\n")
+
+            else:
+                if ('T' in subject or 'SUB' not in subject):
+                    with open("outputs/populate_inst_errors.txt", "a") as file:
+                        file.write(f"Unexpected Record: {form}, {subject}\n")
+                else:
+                    try:
+                        comment_id = self.assemble_commentid(subject=subject, visit=self.redcap_event_to_visit(event=event))
+                        self.update(table=form, record=record, comment_id=comment_id)
+                    except Exception:
+                        print(f"Failed to update {comment_id}")
+                        with open("outputs/populate_inst_errors.txt", "a") as file:
+                            file.write(f"Error creating record: {form}, {subject} error:{traceback.format_exc()}\n")        
+
+    def populate_all_instruments(self, **kwargs):
+        exclude = kwargs.get('exclude', [])
+        self.get_all_subject_ids()
+        self.get_candids_from_subjects(subjects=self.subjects)
+        self.get_session_info()
+        for form in self.list_all_forms(exclude=exclude):
+            self.populate_instrument(form=form)
