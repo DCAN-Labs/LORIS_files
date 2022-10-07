@@ -113,7 +113,7 @@ class Loris:
         columns = 'CandID, CenterID, ProjectID, Visit_label, SubprojectID, Current_stage, Date_stage_change, Visit, Date_visit, Date_active, RegisteredBy, UserID, Date_registered, Testdate, Scan_done, languageID'
         values = f"{cand_id}, {center_id}, {project_id}, '{visit}', {subproject_id}, 'Visit', '{visit_date}', 'In Progress', '{visit_date}', '{visit_date}', 'redcapTransfer', 'redcapTransfer', '{visit_date}', '{visit_date}', '{scan_done}', 1"
         print(values)
-        # self.insert('session', columns, values)
+        self.insert('session', columns, values)
 
     def get_active_visits(self, **kwargs):
         subject = kwargs.get('subject')
@@ -232,7 +232,6 @@ class Loris:
             subject = record['record_id']
             if(subject not in subjects and 'SUB' in subject and subject[-1] != 'T'):
                 subjects.append(subject)
-        print(subjects)
         self.subjects = subjects
 
     def field_type_lookup(self, question):
@@ -447,3 +446,7 @@ class Loris:
         for subproject in subprojects:
             for visit_rel in visit_rels:
                 self.populate_visits(visit_rel=visit_rel, subproject=subproject)
+
+    def add_all_sessions(self):
+        self.get_all_subject_ids()
+        self.add_sessions(subjects=self.subjects)
