@@ -7,15 +7,17 @@ loris = Loris()
 
 # loris.create_all_instrument_files(exclude=exclude, sql=True)
 # loris.commit()
-## mysql connector may go out of sync after create_all_instruments. Run it seperately.
+# # mysql connector may go out of sync after create_all_instruments. Run it seperately.
+
+## copy instrument files into the loris instrument directory, then parse them with "find ../project/instruments/*.inc | php lorisform_parser.php" fix errors if present and re-run.
+## after parsing, run the data dictionary generation script tools/exporters/data_dictionary_builder.php
 
 # loris.get_all_form_metadata(exclude=exclude)
-# loris.commit()
 # loris.populate_visits()
 # loris.commit()
 # loris.add_all_sessions()
 # loris.commit()
-## before proceeding run the loris script assign_missing_instruments.php
+# # before proceeding run the loris script assign_missing_instruments.php
 
 exclude.extend(exclude_error)
 loris.populate_all_instruments(exclude=exclude)

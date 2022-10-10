@@ -280,7 +280,6 @@ class Loris:
             for i, value in enumerate(values)]
 
         jinja_dict = {'param': instrument_params, 'var_data': var_data_object, 'field_type': field_type}
-        # print(json.dumps(jinja_dict, indent=4))
 
         with open('LORIS_php_instrument_template.html.jinja2') as filein:  # noqa
             loris_template = Template(filein.read(), trim_blocks=True, lstrip_blocks=True)
@@ -289,7 +288,6 @@ class Loris:
             fileout.write(loris_template.render(jinja_dict))
 
     def create_table_lines(self, question, values):
-        # `q108` enum('0', '1', '2', '3', 'not_answered') DEFAULT NULL,
         field_type = values['field_type']
         sql_type = self.field_type_lookup(values)
         if sql_type == 'enum':
@@ -461,7 +459,7 @@ class Loris:
             sql = sql[:-2]
             sql += f" WHERE CommentID LIKE '{comment_id}%'"
             self.cursor.execute(sql)
-            print(f"Updated {comment_id}")
+            print(f"Updated {table}: {comment_id}")
 
     def prepare_update_value(self, value):
         if value == "":
@@ -474,7 +472,6 @@ class Loris:
 
     def populate_instrument(self, **kwargs):
         form = kwargs.get('form')
-        # subjects = kwargs.get('subjects')
         data = {
             'token': f'{self.token}',
             'content': 'record',
@@ -495,11 +492,11 @@ class Loris:
         print('HTTP Status: ' + str(r.status_code))
         records = r.json()
         records = [record for record in records if int(record[f'{form}_complete'] or 0)]
-        # records = {record['record_id']: record for record in records if int(record[f'{form}_complete'] or 0)}
         with open('outputs/response.json', 'w+') as file:
             json.dump(records, file, indent=4)
 
         for record in records:
+            record = self.collapse_multi_select(form=form, record=record)
             event = record['redcap_event_name']
             subject = record['record_id']
             if 'teac' in event:
@@ -512,7 +509,7 @@ class Loris:
                         comment_id = self.assemble_commentid(subject=subject, visit=self.redcap_event_to_visit(event=event))
                         self.update(table=form, record=record, comment_id=comment_id)
                     except Exception:
-                        print(f"Failed to update {comment_id}")
+                        print(f"Failed to update {form}: {comment_id}")
                         with open("outputs/populate_inst_errors.txt", "a") as file:
                             file.write(f"Error creating record: {form}, {subject} error:{traceback.format_exc()}\n")
 
@@ -525,14 +522,29 @@ class Loris:
                         comment_id = self.assemble_commentid(subject=subject, visit=self.redcap_event_to_visit(event=event))
                         self.update(table=form, record=record, comment_id=comment_id)
                     except Exception:
-                        print(f"Failed to update {comment_id}")
+                        print(f"Failed to update {form}: {comment_id}")
                         with open("outputs/populate_inst_errors.txt", "a") as file:
                             file.write(f"Error creating record: {form}, {subject} error:{traceback.format_exc()}\n")        
 
     def populate_all_instruments(self, **kwargs):
         exclude = kwargs.get('exclude', [])
+        self.get_all_form_metadata(exclude=exclude)
         self.get_all_subject_ids()
         self.get_candids_from_subjects(subjects=self.subjects)
         self.get_session_info()
         for form in self.list_all_forms(exclude=exclude):
             self.populate_instrument(form=form)
+
+    def collapse_multi_select(self, **kwargs):
+        record = kwargs.get('record')
+        form = kwargs.get('form')
+        flagged = {field[0:-4]: [item[-1] for item in record if item[0:-4] == field[0:-4] and record[item] != '0'] for field in record if field[-4:-1] == '___'}
+        to_del = [field for field in record if field[-4:-1] == '___']
+        for field in flagged:
+            choices = self.metadata[form][field]['select_choices_or_calculations'].split('|')
+            choices = {choice.split(', ')[0].strip(): choice.split(', ')[1].strip() for choice in choices}
+            value = ', '.join([choices[str(item)] for item in flagged[field]])
+            record[field] = value
+        for field in to_del:
+            del record[field]
+        return record
