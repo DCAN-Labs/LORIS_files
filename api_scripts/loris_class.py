@@ -112,7 +112,7 @@ class Loris:
         project_id = cand['RegistrationProjectID']
 
         columns = 'CandID, CenterID, ProjectID, Visit_label, SubprojectID, Current_stage, Date_stage_change, Visit, Date_visit, Date_active, RegisteredBy, UserID, Date_registered, Testdate, Scan_done, languageID'
-        values = f"{cand_id}, {center_id}, {project_id}, '{visit}', {subproject_id}, 'Visit', '{visit_date}', 'In Progress', '{visit_date}', '{visit_date}', 'redcapTransfer', 'redcapTransfer', '{visit_date}', '{visit_date}', '{scan_done}', 1"
+        values = f"{cand_id}, {center_id}, {project_id}, '{visit}', {subproject_id}, 'Visit', '{today}', 'In Progress', '{visit_date}', '{today}', 'redcapTransfer', 'redcapTransfer', '{today}', '{today}', '{scan_done}', 1"
         print(values)
         self.insert('session', columns, values)
 
@@ -258,12 +258,13 @@ class Loris:
               'select': 'enum', 'date': 'date'}
 
         values = self.metadata[form]
+        date_fields = [field for field in values if self.field_type_lookup(values[field]) == 'date']
         instrument_params = {
             "instrument_table_name": form,
             "validity_required": False,
             "validity_enabled": False,
             "include_meta_fields": True,
-            "date_fields":[],
+            "date_fields":date_fields,
             "loris_num_pages": 1,
             "instrument_name_text": form
         }
@@ -548,3 +549,36 @@ class Loris:
         for field in to_del:
             del record[field]
         return record
+
+    def get_survey_dates(self):
+        data = {
+            'token': self.token,
+            'content': 'report',
+            'format': 'json',
+            'report_id': '47678',
+            'csvDelimiter': '',
+            'rawOrLabel': 'raw',
+            'rawOrLabelHeaders': 'raw',
+            'exportCheckboxLabel': 'false',
+            'returnFormat': 'json'
+        }
+        r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
+        print('HTTP Status: ' + str(r.status_code))
+        records = r.json()
+        with open('outputs/response.json', 'w+') as file:
+            json.dump(records, file, indent=4)
+
+        visits = ['visit_1', 'visit_2', 'mri_visit']
+        timestamps = {record['record_id'][:12]: {visit: {event['redcap_event_name']: {field[:-9]: { 'complete': event[field], 'timestamp': event[f'{field[:-9]}_timestamp'] } for field in event if event[field] and field[-9:] == '_complete'} for event in records if record['record_id'][:12] == event['record_id'][:12] and visit in event['redcap_event_name']} for visit in visits} for record in records if 'SUB' in record['record_id']}
+
+        dict = {}
+        for subject in timestamps:
+            dict[subject] = {}
+            for visit in timestamps[subject]:
+                dict[subject][visit] = {}
+                for event in timestamps[subject][visit]:
+                    for field in timestamps[subject][visit][event]:
+                        dict[subject][visit][field] = timestamps[subject][visit][event][field]
+        print(json.dumps(dict, indent=4))
+        
+        self.survey_dates = dict
