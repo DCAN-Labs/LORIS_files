@@ -117,7 +117,7 @@ class NDB_BVL_Instrument_{{ param.instrument_table_name }} extends NDB_BVL_Instr
         {% elif q.var_type == 'enum' %}
         $this->form->addElement('select', '{{ q.name }}', "{{ q.text }}", array({{ q.enum_array }}));
         {% elif q.var_type == 'date' %}
-        $this->addDateElement('{{ q.name }}', "{{ q.text }}");
+        $this->addBasicDate('{{ q.name }}', "{{ q.text }}");
         {% elif q.var_type == 'header' %}
         $this->addHeader("{{ q.text }}");
         {% elif q.var_type == 'static' %}
