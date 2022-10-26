@@ -1,3 +1,4 @@
+from re import sub
 import mysql.connector
 from config import config, token
 import datetime
@@ -5,6 +6,7 @@ import requests
 import json
 from jinja2 import Template
 import traceback
+import functools
 
 class Loris:
 
@@ -113,7 +115,7 @@ class Loris:
 
         columns = 'CandID, CenterID, ProjectID, Visit_label, SubprojectID, Current_stage, Date_stage_change, Visit, Date_visit, Date_active, RegisteredBy, UserID, Date_registered, Testdate, Scan_done, languageID'
         values = f"{cand_id}, {center_id}, {project_id}, '{visit}', {subproject_id}, 'Visit', '{today}', 'In Progress', '{visit_date}', '{today}', 'redcapTransfer', 'redcapTransfer', '{today}', '{today}', '{scan_done}', 1"
-        print(values)
+        print(f"Adding session: {subject}, {visit}")
         self.insert('session', columns, values)
 
     def get_active_visits(self, **kwargs):
@@ -135,7 +137,7 @@ class Loris:
             'dateRangeBegin': ''
         }
         r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
-        print('HTTP Status: ' + str(r.status_code))
+        print(f'get active visits {subject} HTTP Status: ' + str(r.status_code))
         records = r.json()
 
         visits = {'visit_1': False, 'visit_2': False, 'mri_visit': False}
@@ -154,9 +156,17 @@ class Loris:
 
         for subject in subjects:
             visits = self.get_active_visits(subject=subject)
-            for visit in visits:
-                subproject_id = 1 if 'SUB-1' in subject else 2
-                self.add_session(subject=subject, subproject_id=subproject_id, visit=visit)
+            if subject in self.candid_dict:
+                candid = self.candid_dict[subject]
+                for visit in visits:
+                    if candid not in self.sessions:
+                        self.sessions[candid] = {}
+                    if visit not in self.sessions[candid]:
+                        subproject_id = 1 if 'SUB-1' in subject else 2
+                        scan_done = 'N'
+                        visit_date = self.get_session_date(visit=visit, subject=subject)
+                        if visit_date:
+                            self.add_session(subject=subject, subproject_id=subproject_id, visit=visit, visit_date=visit_date, scan_done=scan_done)
 
     def start_visit(self):
         print("Please run assign_missing_instruments.php to start visits")
@@ -175,9 +185,10 @@ class Loris:
         records = r.json()
         self.metadata = { record['form_name']: { field['field_name']: { 'field_type': field['field_type'], 'field_label': field['field_label'], 'select_choices_or_calculations': field['select_choices_or_calculations'], 'text_validation_type_or_show_slider_number': field['text_validation_type_or_show_slider_number']} for field in records if field['form_name'] == record['form_name']} for record in records if record['form_name'] in forms}
         with open('outputs/form.json', 'w+') as file:
-            json.dump(self.metadata, file)
+            json.dump(self.metadata, file, indent=4)
 
     def get_all_subject_ids(self):
+        print("Getting Subject IDs...")
         data = {
             'token': f'{self.token}',
             'content': 'record',
@@ -195,7 +206,7 @@ class Loris:
         }
 
         r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
-        print('HTTP Status: ' + str(r.status_code))
+        print('get all subject ids HTTP Status: ' + str(r.status_code))
         records = r.json()
         subjects = []
         for record in records:
@@ -377,7 +388,7 @@ class Loris:
             'returnFormat': 'json'
         }
         r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
-        print('HTTP Status: ' + str(r.status_code))
+        print('get forms HTTP Status: ' + str(r.status_code))
         records = r.json()
 
         visits = ['visit_1', 'visit_2', 'mri_visit']
@@ -411,6 +422,9 @@ class Loris:
 
     def add_all_sessions(self):
         self.get_all_subject_ids()
+        self.get_candids_from_subjects(subjects=self.subjects)
+        self.get_session_info()
+        self.get_survey_dates()
         self.add_sessions(subjects=self.subjects)
 
     def get_candids_from_subjects(self, **kwargs):
@@ -448,7 +462,7 @@ class Loris:
             print(f'Failed to parse event: {event}')
             return ''
 
-    def update(self, **kwargs):
+    def update_instrument(self, **kwargs):
             table = kwargs.get('table')
             record = kwargs.get('record')
             comment_id = kwargs.get('comment_id')
@@ -490,7 +504,7 @@ class Loris:
             'returnFormat': 'json'
         }
         r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
-        print('HTTP Status: ' + str(r.status_code))
+        print('Instrument Data HTTP Status: ' + str(r.status_code))
         records = r.json()
         records = [record for record in records if int(record[f'{form}_complete'] or 0)]
         with open('outputs/response.json', 'w+') as file:
@@ -508,11 +522,11 @@ class Loris:
                     subject = subject[:12]
                     try:
                         comment_id = self.assemble_commentid(subject=subject, visit=self.redcap_event_to_visit(event=event))
-                        self.update(table=form, record=record, comment_id=comment_id)
+                        self.update_instrument(table=form, record=record, comment_id=comment_id)
                     except Exception:
                         print(f"Failed to update {form}: {comment_id}")
                         with open("outputs/populate_inst_errors.txt", "a") as file:
-                            file.write(f"Error creating record: {form}, {subject} error:{traceback.format_exc()}\n")
+                            file.write(f"{datetime.datetime.now()} | Error creating record: {form}, {subject} error:{traceback.format_exc()}\n")
 
             else:
                 if ('T' in subject or 'SUB' not in subject):
@@ -521,11 +535,11 @@ class Loris:
                 else:
                     try:
                         comment_id = self.assemble_commentid(subject=subject, visit=self.redcap_event_to_visit(event=event))
-                        self.update(table=form, record=record, comment_id=comment_id)
+                        self.update_instrument(table=form, record=record, comment_id=comment_id)
                     except Exception:
                         print(f"Failed to update {form}: {comment_id}")
                         with open("outputs/populate_inst_errors.txt", "a") as file:
-                            file.write(f"Error creating record: {form}, {subject} error:{traceback.format_exc()}\n")        
+                            file.write(f"{datetime.datetime.now()} | Error creating record: {form}, {subject} error:{traceback.format_exc()}\n")        
 
     def populate_all_instruments(self, **kwargs):
         exclude = kwargs.get('exclude', [])
@@ -563,7 +577,7 @@ class Loris:
             'returnFormat': 'json'
         }
         r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
-        print('HTTP Status: ' + str(r.status_code))
+        print('Survey Dates HTTP Status: ' + str(r.status_code))
         records = r.json()
         with open('outputs/response.json', 'w+') as file:
             json.dump(records, file, indent=4)
@@ -579,6 +593,135 @@ class Loris:
                 for event in timestamps[subject][visit]:
                     for field in timestamps[subject][visit][event]:
                         dict[subject][visit][field] = timestamps[subject][visit][event][field]
-        print(json.dumps(dict, indent=4))
+
+        with open('outputs/timestamps.json', 'w+') as file:
+            json.dump(dict, file, indent=4)
         
         self.survey_dates = dict
+
+    def update_test_dates(self, **kwargs):
+        form = kwargs.get('form')
+        subject = kwargs.get('subject')
+        timestamp = kwargs.get('timestamp')
+        
+        visit = kwargs.get('visit')
+        examiner = kwargs.get('examiner', 1)
+        user_id = kwargs.get('user_id', 'frontEndAdmin')
+
+        comment_id = self.assemble_commentid(subject=subject, visit=visit)
+        record = {'Date_taken': timestamp, 'Examiner': examiner, 'UserID': user_id}
+
+        self.update_instrument(table=form, record=record, comment_id=comment_id)
+
+
+    def update_flag_table(self, **kwargs):
+        complete_num = kwargs.get('complete')
+        form = kwargs.get('form')
+        subject = kwargs.get('subject')
+        visit = kwargs.get('visit')
+
+        complete = "In Progress"
+        if complete_num == '2':
+            complete = "Complete"
+
+        record = {'Data_entry': complete}
+        if complete == "Complete":
+            record['Administration'] = "All"
+
+        partial_comment_id = self.assemble_commentid(subject=subject, visit=visit)
+
+        self.query(table=form, fields='CommentID', condition=f"CommentID LIKE '{partial_comment_id}%'")
+        comment_id = self.result[0]['CommentID']
+        self.update_instrument(table='flag', record=record, comment_id=comment_id)
+
+
+    def get_session_date(self, **kwargs):
+        subject = kwargs.get('subject')
+        visit = kwargs.get('visit')
+        tests = list(self.survey_dates[subject][visit].values())
+        filtered_tests = list(filter(lambda x: x["timestamp"], tests))
+        min_timestamp = ""
+        if len(filtered_tests):
+            min_timestamp = functools.reduce(lambda a, b: a if a['timestamp'] < b['timestamp'] else b, filtered_tests)['timestamp']
+        return min_timestamp
+
+    def fix_all_session_dates(self, **kwargs):
+        pass
+
+    def update_all_instrument_metadata(self, **kwargs):
+        exclude = kwargs.get('exclude')
+        self.get_survey_dates()
+        self.get_session_info()
+        self.get_all_subject_ids()
+        self.get_candids_from_subjects(subjects=self.subjects)
+        self.get_forms(exclude=exclude)
+        for subject in self.survey_dates:
+            for visit in self.survey_dates[subject]:
+                for form in self.survey_dates[subject][visit]:
+                    if form not in exclude and self.survey_dates[subject][visit][form]['timestamp']:
+                        timestamp = self.survey_dates[subject][visit][form]['timestamp']
+                        complete = self.survey_dates[subject][visit][form]['complete']
+                        try:
+                            self.update_test_dates(form=form, subject=subject, timestamp=timestamp, complete=complete, visit=visit)
+                            self.update_flag_table(form=form, subject=subject, complete=complete, visit=visit)
+                        except Exception:
+                            print(f"Failed to update {form}: {subject}")
+                            with open("outputs/populate_inst_errors.txt", "a") as file:
+                                file.write(f"{datetime.datetime.now()} | Error updating record: {form}, {subject} error:{traceback.format_exc()}\n")
+
+    def get_repeating_form(self, **kwargs):
+        instrument = kwargs.get("instrument")
+        data = {
+            'token': self.token,
+            'content': 'record',
+            'action': 'export',
+            'format': 'json',
+            'type': 'flat',
+            'csvDelimiter': '',
+            'fields[0]': 'record_id',
+            'forms[0]': instrument,
+            'rawOrLabel': 'raw',
+            'rawOrLabelHeaders': 'raw',
+            'exportCheckboxLabel': 'false',
+            'exportSurveyFields': 'false',
+            'exportDataAccessGroups': 'false',
+            'returnFormat': 'json'
+        }
+        r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
+        print('get_repeating_form HTTP Status: ' + str(r.status_code))
+        records = r.json()
+        instrument_data = { record["record_id"]: {instance["redcap_repeat_instance"]: instance for instance in records if instance["redcap_repeat_instance"] and record["record_id"] == instance["record_id"]} for record in records if record["redcap_repeat_instrument"] == instrument}
+        with open('outputs/repeat_instrument.json', 'w+') as file:
+            json.dump(instrument_data, file, indent=4)
+        return instrument_data
+
+    def add_repeat_sessions(self, **kwargs):
+        instrument = kwargs.get("instrument")
+        visit_label = kwargs.get("visit_label")
+        scan_done = kwargs.get("scan_done")
+        visit_date_field = kwargs.get("visit_date_field")
+
+        repeat_instrument = self.get_repeating_form(instrument=instrument)
+
+        for subject in repeat_instrument:
+            subproject_id = 1 if "SUB-1" in subject else 2
+            for instance in repeat_instrument[subject]:
+                visit = f"{visit_label}_{instance}"
+                visit_date = repeat_instrument[subject][instance][visit_date_field]
+                self.add_session(subject=subject, visit=visit, subproject_id=subproject_id, visit_date=visit_date, scan_done=scan_done)
+
+    def get_form_event_mappings(self):
+        data = {
+            'token': self.token,
+            'content': 'formEventMapping',
+            'format': 'json',
+            'arms[0]': '1',
+            'returnFormat': 'json'
+        }
+        r = requests.post('https://redcap.ahc.umn.edu/api/',data=data)
+        print('get forms HTTP Status: ' + str(r.status_code))
+        records = r.json()
+
+        return records
+
+    
