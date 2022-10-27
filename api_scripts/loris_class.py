@@ -1,4 +1,3 @@
-from re import sub
 import mysql.connector
 from config import config, token
 import datetime
@@ -13,6 +12,7 @@ class Loris:
     def __init__(self):
         self.cnx = mysql.connector.connect(**config)
         self.cursor = self.cnx.cursor(dictionary=True)
+        self.error_log = "outputs/data_transfer_errors.txt"
         self.token = token
 
     def __del__(self):
@@ -95,8 +95,13 @@ class Loris:
 
     def get_candidate_info(self, **kwargs):
         subject = kwargs.get('subject')
+        candidate = kwargs.get('candidate')
         columns = 'PSCID, CandID, RegistrationCenterID, RegistrationProjectID'
-        condition = f"PSCID = '{subject}'"
+
+        if subject:
+            condition = f"PSCID = '{subject}'"
+        elif candidate:
+            condition = f"CandID = '{candidate}'"
         self.query('candidate', columns, condition)
         return self.result[0]
         
@@ -154,6 +159,9 @@ class Loris:
     def add_sessions(self, **kwargs):
         subjects = kwargs.get('subjects')
 
+        with open(self.error_log, "a") as file:
+            file.write(f"============ Add Sessions: {datetime.datetime.now()} ============\n")
+
         for subject in subjects:
             visits = self.get_active_visits(subject=subject)
             if subject in self.candid_dict:
@@ -163,10 +171,12 @@ class Loris:
                         self.sessions[candid] = {}
                     if visit not in self.sessions[candid]:
                         subproject_id = 1 if 'SUB-1' in subject else 2
-                        scan_done = 'N'
+                        scan_done = 'Y' if visit == 'mri_visit' else 'N'
                         visit_date = self.get_session_date(visit=visit, subject=subject)
-                        if visit_date:
+                        try:
                             self.add_session(subject=subject, subproject_id=subproject_id, visit=visit, visit_date=visit_date, scan_done=scan_done)
+                        except Exception:
+                            self.log_data_transfer_error(table="session", criteria=f"{subject} {visit}")
 
     def start_visit(self):
         print("Please run assign_missing_instruments.php to start visits")
@@ -435,7 +445,7 @@ class Loris:
 
         self.candid_dict = {record['PSCID']: record['CandID'] for record in self.result}
     
-    def get_session_info(self, **kwargs):
+    def get_session_info(self):
         self.query('session', 'ID, CandID, Visit_label', 'CandID')
         result = self.result
         sessions = { record['CandID']: {session['Visit_label']: session['ID'] for session in result if record['CandID'] == session['CandID'] } for record in result }
@@ -444,7 +454,7 @@ class Loris:
     def assemble_commentid(self, **kwargs):
         pscid = kwargs.get('subject')
         visit = kwargs.get('visit')
-        candid = self.candid_dict[pscid]
+        candid = self.get_candidate_info(subject=pscid)['CandID']
         session_id = self.sessions[candid][visit]
         
         commentid = f"{candid}{pscid}{session_id}"
@@ -485,6 +495,15 @@ class Loris:
         else:
             return f"'{value}'"
 
+    def log_data_transfer_error(self, **kwargs):
+        table = kwargs.get("table")
+        criteria = kwargs.get("criteria")
+
+        print(f"Failed to update {table}: {criteria}")
+        with open(self.error_log, "a") as file:
+            file.write(f"--------------------------\n{datetime.datetime.now()} | Error updating {table}: {criteria} error:\n{traceback.format_exc()}\n")
+
+
     def populate_instrument(self, **kwargs):
         form = kwargs.get('form')
         data = {
@@ -516,7 +535,7 @@ class Loris:
             subject = record['record_id']
             if 'teac' in event:
                 if ('T' not in subject or 'SUB' not in subject):
-                    with open("outputs/populate_inst_errors.txt", "a") as file:
+                    with open(self.error_log, "a") as file:
                         file.write(f"Unexpected Record: {form}, {subject}\n")
                 else:
                     subject = subject[:12]
@@ -524,22 +543,18 @@ class Loris:
                         comment_id = self.assemble_commentid(subject=subject, visit=self.redcap_event_to_visit(event=event))
                         self.update_instrument(table=form, record=record, comment_id=comment_id)
                     except Exception:
-                        print(f"Failed to update {form}: {comment_id}")
-                        with open("outputs/populate_inst_errors.txt", "a") as file:
-                            file.write(f"{datetime.datetime.now()} | Error creating record: {form}, {subject} error:{traceback.format_exc()}\n")
+                        self.log_data_transfer_error(table=form, criteria=subject)
 
             else:
                 if ('T' in subject or 'SUB' not in subject):
-                    with open("outputs/populate_inst_errors.txt", "a") as file:
+                    with open(self.error_log, "a") as file:
                         file.write(f"Unexpected Record: {form}, {subject}\n")
                 else:
                     try:
                         comment_id = self.assemble_commentid(subject=subject, visit=self.redcap_event_to_visit(event=event))
                         self.update_instrument(table=form, record=record, comment_id=comment_id)
                     except Exception:
-                        print(f"Failed to update {form}: {comment_id}")
-                        with open("outputs/populate_inst_errors.txt", "a") as file:
-                            file.write(f"{datetime.datetime.now()} | Error creating record: {form}, {subject} error:{traceback.format_exc()}\n")        
+                        self.log_data_transfer_error(table=form, criteria=subject)        
 
     def populate_all_instruments(self, **kwargs):
         exclude = kwargs.get('exclude', [])
@@ -547,6 +562,8 @@ class Loris:
         self.get_all_subject_ids()
         self.get_candids_from_subjects(subjects=self.subjects)
         self.get_session_info()
+        with open(self.error_log, "a") as file:
+            file.write(f"============ Populate All Instruments: {datetime.datetime.now()} ============\n")
         for form in self.list_all_forms(exclude=exclude):
             self.populate_instrument(form=form)
 
@@ -645,9 +662,6 @@ class Loris:
             min_timestamp = functools.reduce(lambda a, b: a if a['timestamp'] < b['timestamp'] else b, filtered_tests)['timestamp']
         return min_timestamp
 
-    def fix_all_session_dates(self, **kwargs):
-        pass
-
     def update_all_instrument_metadata(self, **kwargs):
         exclude = kwargs.get('exclude')
         self.get_survey_dates()
@@ -655,6 +669,10 @@ class Loris:
         self.get_all_subject_ids()
         self.get_candids_from_subjects(subjects=self.subjects)
         self.get_forms(exclude=exclude)
+
+        with open(self.error_log, "a") as file:
+            file.write(f"============ Update All Instrument Metadata: {datetime.datetime.now()} ============\n")
+
         for subject in self.survey_dates:
             for visit in self.survey_dates[subject]:
                 for form in self.survey_dates[subject][visit]:
@@ -665,9 +683,7 @@ class Loris:
                             self.update_test_dates(form=form, subject=subject, timestamp=timestamp, complete=complete, visit=visit)
                             self.update_flag_table(form=form, subject=subject, complete=complete, visit=visit)
                         except Exception:
-                            print(f"Failed to update {form}: {subject}")
-                            with open("outputs/populate_inst_errors.txt", "a") as file:
-                                file.write(f"{datetime.datetime.now()} | Error updating record: {form}, {subject} error:{traceback.format_exc()}\n")
+                            self.log_data_transfer_error(table=form, criteria=subject)
 
     def get_repeating_form(self, **kwargs):
         instrument = kwargs.get("instrument")
@@ -700,15 +716,19 @@ class Loris:
         visit_label = kwargs.get("visit_label")
         scan_done = kwargs.get("scan_done")
         visit_date_field = kwargs.get("visit_date_field")
+        skip_first = kwargs.get("skip_first") #if the first visit is already made
 
         repeat_instrument = self.get_repeating_form(instrument=instrument)
 
         for subject in repeat_instrument:
             subproject_id = 1 if "SUB-1" in subject else 2
             for instance in repeat_instrument[subject]:
-                visit = f"{visit_label}_{instance}"
-                visit_date = repeat_instrument[subject][instance][visit_date_field]
-                self.add_session(subject=subject, visit=visit, subproject_id=subproject_id, visit_date=visit_date, scan_done=scan_done)
+                if skip_first and instance == 1:
+                    pass
+                else:
+                    visit = f"{visit_label}_{instance}"
+                    visit_date = repeat_instrument[subject][instance][visit_date_field]
+                    self.add_session(subject=subject, visit=visit, subproject_id=subproject_id, visit_date=visit_date, scan_done=scan_done)
 
     def get_form_event_mappings(self):
         data = {
@@ -722,6 +742,79 @@ class Loris:
         print('get forms HTTP Status: ' + str(r.status_code))
         records = r.json()
 
-        return records
+        self.form_event_mappings = records
 
-    
+    def categorize_forms(self, **kwargs):
+        exclude = kwargs.get("exclude")
+        mappings = kwargs.get("mappings")
+
+        categorized_forms = {}
+        for form in self.form_event_mappings:
+            if form["form"] not in exclude:
+                found = False
+                for key in list(mappings.keys()):
+                    if key in form["unique_event_name"]:
+                        found = True
+                        category = mappings[key]
+                        categorized_forms[form["form"]] = category
+                if not found:
+                    print(f"Form not categorized: {form['form']}")
+        return categorized_forms
+
+    def update_instrument_subgroups(self, **kwargs):
+        exclude = kwargs.get("exclude")
+        mappings = kwargs.get("mappings")
+
+        categories = self.categorize_forms(exclude=exclude, mappings=mappings)
+
+        for category in categories:
+            print(f"Updating test_names: {category}, {categories[category]}")
+            sql = f"UPDATE test_names SET Sub_group = {categories[category]} WHERE Test_name = '{category}'"
+            self.cursor.execute(sql)
+
+    def populate_repeating_instrument(self, **kwargs):
+        instrument = kwargs.get("instrument")
+        visit_label = kwargs.get("visit_label")
+        visit_date_field = kwargs.get("visit_date_field")
+        repeat_instrument = self.get_repeating_form(instrument=instrument)
+
+        with open(self.error_log, "a") as file:
+            file.write(f"============ Populate Repeating Instrument: {datetime.datetime.now()} ============\n")
+
+        for subject in repeat_instrument:
+            for instance in repeat_instrument[subject]:
+                record = self.collapse_multi_select(form=instrument, record=repeat_instrument[subject][instance])
+                record["Date_taken"] = record[visit_date_field]
+                visit = visit_label if instance == 1 else f"{visit_label}_{instance}"
+                complete = record[f"{instrument}_complete"]
+                try:
+                    comment_id = self.assemble_commentid(subject=subject, visit=visit)
+                    self.update_instrument(table=instrument, record=record, comment_id=comment_id)
+                    self.update_flag_table(form=instrument, subject=subject, complete=complete, visit=visit)
+                except Exception:
+                    self.log_data_transfer_error(table=instrument, criteria=subject)
+
+    def update_session_dates(self, **kwargs):
+        # visits to exclude
+        exclude = kwargs.get("exclude") 
+
+        self.get_session_info()
+
+        with open(self.error_log, "a") as file:
+            file.write(f"============ Update Session Dates: {datetime.datetime.now()} ============\n")
+
+        for candidate in self.sessions:
+            for visit in self.sessions[candidate]:
+                if visit not in exclude:
+                    scan_done = 'Y' if visit == 'mri_visit' else 'N'
+                    subject = self.get_candidate_info(candidate=candidate)['PSCID']
+                    visit_date = self.get_session_date(visit=visit, subject=subject)
+                    session = self.sessions[candidate][visit]
+
+                    try:
+                        sql = f"UPDATE session SET Scan_done = '{scan_done}', Date_visit = '{visit_date}' WHERE ID = '{session}'"
+                        self.cursor.execute(sql)
+                        print(f"Updated session: subject = {subject}, visit = {visit}")
+                    except Exception:
+                        self.log_data_transfer_error(table='session', criteria=f"ID {session}, Subject {subject}, visit {visit}")
+
