@@ -232,6 +232,7 @@ class RedcapToLoris:
     def populate_test_battery_table(self, **kwargs):
         visits = kwargs.get("visits")
         exclude = kwargs.get("exclude")
+        expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
 
         tests = self.query("test_battery", "Test_name, AgeMinDays, AgeMaxDays, Stage, SubprojectID, Visit_label", "ID")
         old_num = len(tests)
@@ -240,39 +241,48 @@ class RedcapToLoris:
 
         for form in self.form_event_mapping:
             if form["form"] not in exclude:
-                visit_label = 'NULL'
-                for visit in visits:
-                    if "match" in visit:
-                        if visit["match"] in form["unique_event_name"]:
-                            visit_label = visit["label"]
+                visit_labels = []
+                if form["form"] in expected_repeat_instruments:
+                    visit_labels = list(expected_repeat_instruments[form["form"]].values())
+                else:
+                    visit_label = 'NULL'
+                    for visit in visits:
+                        if "match" in visit:
+                            if visit["match"] in form["unique_event_name"]:
+                                visit_label = visit["label"]
+                                break
+                    visit_labels = [visit_label]
+                for visit_label in visit_labels:
+                    values = {
+                        "Test_name": form["form"],
+                        "AgeMinDays": 0,
+                        "AgeMaxDays": 99999,
+                        "Stage": 'Visit',
+                        "SubprojectID": form["arm_num"],
+                        "Visit_label": visit_label
+                    }
+                    
+                    duplicate = False
+                    for test in tests:
+                        if test == values:
+                            duplicate = True
                             break
-                values = {
-                    "Test_name": form["form"],
-                    "AgeMinDays": 0,
-                    "AgeMaxDays": 99999,
-                    "Stage": 'Visit',
-                    "SubprojectID": form["arm_num"],
-                    "Visit_label": visit_label
-                }
-                
-                duplicate = False
-                for test in tests:
-                    if test == values:
-                        duplicate = True
-                        break
-                if not duplicate:
-                    try:
-                        if visit_label == 'NULL':
-                            raise Exception(f"Visit_label NULL for {form['form']}")
-                        self.insert("test_battery", values)
-                        new_num += 1
-                    except Exception:
-                        self.log_error(method="populate_test_battery", details=form["form"])
-                        num_error += 1
+                    if not duplicate:
+                        try:
+                            if visit_label == 'NULL':
+                                raise Exception(f"Visit_label NULL for {form['form']}")
+                            self.insert("test_battery", values)
+                            new_num += 1
+                        except Exception:
+                            self.log_error(method="populate_test_battery_table", details=form["form"])
+                            num_error += 1
         print(f"{old_num + new_num} tests in test_battery. {old_num} unchanged, {new_num} added. {num_error} errors.")
 
     def populate_session_table(self, **kwargs):
         visits = kwargs.get("visits")
+        get_subproject_function = kwargs.get("get_subproject_function")
+        report_id = kwargs.get("report_id") ## this function expects a report that generates a row for each form containing its <form>_complete and <form>_timestamp field
+        expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
 
         subject_visits = {}
         for record in self.records:
@@ -281,21 +291,31 @@ class RedcapToLoris:
             if result:
                 cand_id = result[0]["CandID"]
                 if subject not in subject_visits:
-                    subject_visits[subject] = {}
-                for visit in visits:
-                    if "match" in visit:
-                        if visit["match"] in record["redcap_event_name"]:
-                            subject_visits[subject][visit['label']] = True
-                            break
-        
+                    subject_visits[subject] = { "CandID": cand_id, "visits": {} }
+                repeat_instrument = False
+                if record["redcap_repeat_instrument"] in expected_repeat_instruments:
+                    if record["redcap_repeat_instance"] in expected_repeat_instruments[record["redcap_repeat_instrument"]]:
+                        repeat_instrument = True
+                        visit_label = expected_repeat_instruments[record["redcap_repeat_instrument"]][record["redcap_repeat_instance"]]
+                        for visit in visits:
+                            if visit_label == visit["label"]:
+                                subject_visits[subject]["visits"][visit_label] = visit
+                                break
+                if not repeat_instrument:
+                    for visit in visits:
+                        if "match" in visit:
+                            if visit["match"] in record["redcap_event_name"]:
+                                subject_visits[subject]["visits"][visit['label']] = visit
+                                break
+
         sessions = self.query('session', 'CandID, Visit_label', 'ID')
         num_old = len(sessions)
         num_new = 0
         num_error = 0
         for subject in subject_visits:
-            for visit in subject_visits[subject]:
+            for visit in subject_visits[subject]["visits"]:
                 values = {
-                    'CandID': cand_id,
+                    'CandID': subject_visits[subject]["CandID"],
                     'Visit_label': visit,
                 }
                 duplicate = False
@@ -304,23 +324,46 @@ class RedcapToLoris:
                         duplicate = True
                         break
                 if not duplicate:
+                    scan_done = 'Y' if subject_visits[subject]["visits"][visit]['scan'] else 'N'
+                    result = self.query('candidate', 'RegistrationCenterID, RegistrationProjectID', f"PSCID = '{subject}'")[0]
+                    center_id = result['RegistrationCenterID']
+                    project_id = result["RegistrationProjectID"]
+                    subproject_id = get_subproject_function(subject)
+
+                    timestamps = []
+                    for row in self.reports[report_id]:
+                        if subject in row["record_id"]:
+                            if "match" in subject_visits[subject]["visits"][visit]:
+                                if subject_visits[subject]["visits"][visit]['match'] in row["redcap_event_name"]:
+                                    for field in row:
+                                        if "_timestamp" in field and row[field]:
+                                            timestamps.append(row[field])
+                            if row["redcap_repeat_instrument"] in expected_repeat_instruments:
+                                if row["redcap_repeat_instance"] in expected_repeat_instruments[row["redcap_repeat_instrument"]]:
+                                    timestamps.append(row[f"{row['redcap_repeat_instrument']}_timestamp"])
+                    try:
+                        visit_date = functools.reduce(lambda a, b: a if a < b else b, timestamps)
+                    except Exception:
+                        self.log_error(method="visit_date = functools.reduce() in populate_session_table", details=f"{subject}, {visit}")
+                        num_error += 1
+                        continue
+
                     values.update({ 
                         'CenterID': center_id,
-                        'ProjectID': project_id, 
-                        'SubprojectID': subproject_id, 
-                        'Current_stage': "Visit", 
-                        'Visit': "In Progress", 
-                        'Date_visit': visit_date, 
-                        'RegisteredBy': "redcapTransfer", 
-                        'UserID': "redcapTransfer", 
-                        'Scan_done': scan_done, 
+                        'ProjectID': project_id,
+                        'SubprojectID': subproject_id,
+                        'Current_stage': "Visit",
+                        'Visit': "In Progress",
+                        'Date_visit': visit_date,
+                        'RegisteredBy': "redcapTransfer",
+                        'UserID': "redcapTransfer",
+                        'Scan_done': scan_done,
                         'languageID': 1
                     })
                     try:
                         self.insert('session', values)
                         num_new += 1
                     except Exception:
-                        self.log_error(method="populate_session", details=f"{subject}, {visit}")
+                        self.log_error(method="populate_session_table", details=f"{subject}, {visit}")
                         num_error += 1
         print(f"{num_old + num_new} sessions in session. {num_old} unchanged, {num_new} added. {num_error} errors.")
-                

@@ -25,17 +25,28 @@ visits = [
 
 report_id = 47678
 
+def get_subproject_function(subject):
+    if "SUB-1" in subject:
+        return 1
+    elif "SUB-2" in subject:
+        return 2
+    else:
+        print("Invalid Subject ID for get_subproject_function")
+        return -1
+
+expected_repeat_instruments = { 'mri_data_entry_summary': { 2: "MRIVisit2", 3: "MRIVisit3", 4: "MRIVisit4" } }
+
 DataTransfer = RedcapToLoris()
 
-# DataTransfer.get_records()
+DataTransfer.get_records()
 DataTransfer.get_form_event_mapping()
 DataTransfer.get_metadata()
 DataTransfer.get_report(report_id)
 
 DataTransfer.populate_candidate_table(**candidate_params)
 DataTransfer.populate_visit_table(visits=visits)
-DataTransfer.populate_test_battery_table(exclude=exclude_all, visits=visits)
-# DataTransfer.populate_session_table(visits=visits)
+DataTransfer.populate_test_battery_table(exclude=exclude_all, visits=visits, expected_repeat_instruments=expected_repeat_instruments)
+DataTransfer.populate_session_table(visits=visits, get_subproject_function=get_subproject_function, report_id=report_id, expected_repeat_instruments=expected_repeat_instruments)
 
 DataTransfer.commit()
 
