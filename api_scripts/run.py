@@ -34,19 +34,36 @@ def get_subproject_function(subject):
         print("Invalid Subject ID for get_subproject_function")
         return -1
 
-expected_repeat_instruments = { 'mri_data_entry_summary': { 2: "MRIVisit2", 3: "MRIVisit3", 4: "MRIVisit4" } }
+expected_repeat_instruments = {
+    'mri_data_entry_summary': { 1: "MRIVisit1", 2: "MRIVisit2", 3: "MRIVisit3", 4: "MRIVisit4" }
+}
+
+override_visits = [
+    { "label": 'MRIVisit2', "date_field": 'mri_scan_date'},
+    { "label": 'MRIVisit3', "date_field": 'mri_scan_date'},
+    { "label": 'MRIVisit4', "date_field": 'mri_scan_date'}
+]
+
+def handle_subject_ids(subject):
+    return subject[:12]
 
 DataTransfer = RedcapToLoris()
 
+# get data from redcap API
 DataTransfer.get_records()
 DataTransfer.get_form_event_mapping()
 DataTransfer.get_metadata()
 DataTransfer.get_report(report_id)
 
+# setup LORIS tables for data ingestion
 DataTransfer.populate_candidate_table(**candidate_params)
 DataTransfer.populate_visit_table(visits=visits)
 DataTransfer.populate_test_battery_table(exclude=exclude_all, visits=visits, expected_repeat_instruments=expected_repeat_instruments)
 DataTransfer.populate_session_table(visits=visits, get_subproject_function=get_subproject_function, report_id=report_id, expected_repeat_instruments=expected_repeat_instruments)
+DataTransfer.populate_session_table_override(visits=visits, override_visits=override_visits, get_subproject_function=get_subproject_function, expected_repeat_instruments=expected_repeat_instruments)
+
+# import data
+DataTransfer.transfer_data(visits=visits, expected_repeat_instruments=expected_repeat_instruments, handle_subject_ids=handle_subject_ids)
 
 DataTransfer.commit()
 

@@ -818,3 +818,10 @@ class Loris:
                     except Exception:
                         self.log_data_transfer_error(table='session', criteria=f"ID {session}, Subject {subject}, visit {visit}")
 
+    def rename_tests(self):
+        self.query("test_names", "ID, Test_name, Full_name", "ID")
+        for row in self.result:
+            id = row["ID"]
+            full_name = row["Full_name"].replace("_", " ").title()
+            sql = f"UPDATE test_names SET Full_name = '{full_name}' WHERE ID = '{id}'"
+            self.cursor.execute(sql)

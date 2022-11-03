@@ -11,13 +11,16 @@ from random import randint
 class RedcapToLoris:
 
     ## setup database connection, basic operations
-    def __init__(self):
+    def __init__(self, **kwargs):
+        self.verbose = kwargs.get("verbose")
+
         self.cnx = mysql.connector.connect(**config)
         self.cursor = self.cnx.cursor(dictionary=True)
         self.error_log = "outputs/redcap_to_loris_errors.txt"
         self.token = token
         self.api_route = api_route
         self.reports = {}
+
 
     def __del__(self):
         self.cnx.close()
@@ -31,16 +34,47 @@ class RedcapToLoris:
         stmt = "INSERT INTO `{table}` ({columns}) VALUES ({values});".format(table=table, columns=",".join(dict.keys()), values=placeholder)
         self.cursor.execute(stmt, list(dict.values()))
 
-    def query(self, table, fields, condition):
-        query = (f"SELECT {fields} FROM {table} " f"WHERE {condition}")
+    def query(self, **kwargs):
+        table = kwargs.get("table")
+        fields = kwargs.get("fields")
+        where = kwargs.get("where")
+        where_like = kwargs.get("where_like")
+
+        columns = ', '.join(fields)
+
+        query = f"SELECT {columns} FROM {table}"
+
+        if where:
+            wheres = ' AND '.join(f'{key} = "{value}"' for key, value in where.items())
+   
+        if where_like:
+            where_likes = ' AND '.join(f'{key} LIKE "{value}"' for key, value in where_like.items())
+
+        if where and where_like:
+            query += " WHERE " + wheres + " AND " + where_likes
+        elif where:
+            query += " WHERE " + wheres
+        elif where_like:
+            query += " WHERE " + where_likes
+
         self.cursor.execute(query)
         return [row for row in self.cursor]
-    
+
+    def update(self, **kwargs):
+        table = kwargs.get("table")
+        fields = kwargs.get("fields")
+        where = kwargs.get("where")
+
+        sql = 'UPDATE {table} SET {values} WHERE {where}'.format(table=table, values=', '.join('{}=%s'.format(key) for key in fields), where=' AND '.join(f'{key} = "{value}"' for key, value in where.items()))
+        self.cursor.execute(sql, list(fields.values()))
+
+
     def log_error(self, **kwargs):
         method = kwargs.get("method")
         details = kwargs.get("details")
 
-        print(f"Error executing {method}: {details}")
+        if self.verbose:
+            print(f"Error executing {method}: {details}")
         with open(self.error_log, "a") as file:
             file.write(f"--------------------------\n{datetime.datetime.now()} | Error in {method}: {details}\n{traceback.format_exc()}\n")
 
@@ -110,7 +144,7 @@ class RedcapToLoris:
     ## Creating Candidates
 
     def get_existing_candidates(self):
-        candidates = self.query('candidate', 'PSCID, CandID', 'ID')
+        candidates = self.query(table='candidate', fields=['PSCID', 'CandID'])
         self.cand_ids = [candidate["CandID"] for candidate in candidates]
         self.pscids = [candidate["PSCID"] for candidate in candidates]
 
@@ -190,7 +224,8 @@ class RedcapToLoris:
                         registration_center_lookup = registration_center_lookup
                     )
                     self.insert('candidate', candidate_info)
-                    print(f"Added candidate: {record['record_id']}")
+                    if self.verbose:
+                        print(f"Added candidate: {record['record_id']}")
                     num_added += 1
                 except Exception:
                     self.log_error(method='populate_candidate_table', details=record["record_id"])
@@ -205,8 +240,7 @@ class RedcapToLoris:
     def populate_visit_table(self, **kwargs):
         visits = kwargs.get("visits")
 
-        existing_visits = self.query('visit', "VisitName, VisitLabel", "VisitID")
-        num_old = len(existing_visits)
+        num_old = self.query(table="visit", fields=["count(*)"])[0]["count(*)"]
         num_new = 0
         num_error = 0
 
@@ -215,15 +249,12 @@ class RedcapToLoris:
                 "VisitName": visit["label"],
                 "VisitLabel": visit["label"]
             }
-            duplicate = False
-            for existing_visit in existing_visits:
-                if existing_visit == values:
-                    duplicate = True
-                    break
-            if not duplicate:
+            if not len(self.query(table="visit", fields=list(values.keys()), where=values)):
                 try:
                     self.insert('visit', values)
                     num_new += 1
+                    if self.verbose:
+                        print(f"Added visit {visit['label']}")
                 except Exception:
                     self.log_error(method="populate_visit_table", details=visit["label"])
                     num_error += 1
@@ -234,8 +265,7 @@ class RedcapToLoris:
         exclude = kwargs.get("exclude")
         expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
 
-        tests = self.query("test_battery", "Test_name, AgeMinDays, AgeMaxDays, Stage, SubprojectID, Visit_label", "ID")
-        old_num = len(tests)
+        old_num = self.query(table="test_battery", fields=["count(*)"])[0]["count(*)"]
         new_num = 0
         num_error = 0
 
@@ -261,18 +291,14 @@ class RedcapToLoris:
                         "SubprojectID": form["arm_num"],
                         "Visit_label": visit_label
                     }
-                    
-                    duplicate = False
-                    for test in tests:
-                        if test == values:
-                            duplicate = True
-                            break
-                    if not duplicate:
+                    if not len(self.query(table="test_battery", fields=list(values.keys()), where=values)):
                         try:
                             if visit_label == 'NULL':
                                 raise Exception(f"Visit_label NULL for {form['form']}")
                             self.insert("test_battery", values)
                             new_num += 1
+                            if self.verbose:
+                                print(f"Added test {form['form']}, {visit_label}")
                         except Exception:
                             self.log_error(method="populate_test_battery_table", details=form["form"])
                             num_error += 1
@@ -287,7 +313,7 @@ class RedcapToLoris:
         subject_visits = {}
         for record in self.records:
             subject = record['record_id']
-            result = self.query("candidate", "CandID", f"PSCID = '{subject}'")
+            result = self.query(table="candidate", fields=["CandID"], where={"PSCID": subject})
             if result:
                 cand_id = result[0]["CandID"]
                 if subject not in subject_visits:
@@ -308,8 +334,7 @@ class RedcapToLoris:
                                 subject_visits[subject]["visits"][visit['label']] = visit
                                 break
 
-        sessions = self.query('session', 'CandID, Visit_label', 'ID')
-        num_old = len(sessions)
+        num_old = self.query(table="session", fields=["count(*)"])[0]["count(*)"]
         num_new = 0
         num_error = 0
         for subject in subject_visits:
@@ -318,14 +343,9 @@ class RedcapToLoris:
                     'CandID': subject_visits[subject]["CandID"],
                     'Visit_label': visit,
                 }
-                duplicate = False
-                for session in sessions:
-                    if values == session:
-                        duplicate = True
-                        break
-                if not duplicate:
+                if not len(self.query(table="session", fields=list(values.keys()), where=values)):
                     scan_done = 'Y' if subject_visits[subject]["visits"][visit]['scan'] else 'N'
-                    result = self.query('candidate', 'RegistrationCenterID, RegistrationProjectID', f"PSCID = '{subject}'")[0]
+                    result = self.query(table='candidate', fields=['RegistrationCenterID', 'RegistrationProjectID'], where={"PSCID": subject})[0]
                     center_id = result['RegistrationCenterID']
                     project_id = result["RegistrationProjectID"]
                     subproject_id = get_subproject_function(subject)
@@ -344,7 +364,7 @@ class RedcapToLoris:
                     try:
                         visit_date = functools.reduce(lambda a, b: a if a < b else b, timestamps)
                     except Exception:
-                        self.log_error(method="visit_date = functools.reduce() in populate_session_table", details=f"{subject}, {visit}")
+                        self.log_error(method="functools.reduce() in populate_session_table", details=f"{subject}, {visit}")
                         num_error += 1
                         continue
 
@@ -363,7 +383,144 @@ class RedcapToLoris:
                     try:
                         self.insert('session', values)
                         num_new += 1
+                        if self.verbose:
+                            print(f"Added session {subject}, {visit_label}")
                     except Exception:
                         self.log_error(method="populate_session_table", details=f"{subject}, {visit}")
                         num_error += 1
         print(f"{num_old + num_new} sessions in session. {num_old} unchanged, {num_new} added. {num_error} errors.")
+
+    def populate_session_table_override(self, **kwargs):
+        visits = kwargs.get("visits")
+        override_visits = kwargs.get("override_visits")
+        get_subproject_function = kwargs.get("get_subproject_function")
+        expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
+
+        num_old = self.query(table="session", fields=["count(*)"])[0]["count(*)"]
+        num_new = 0
+        num_error = 0
+
+        for override_visit in override_visits:
+            visit_label = override_visit["label"]
+            date_field = override_visit["date_field"]
+            
+            for record in self.records:
+                if record[date_field]:
+                    if record["redcap_repeat_instrument"]:
+                        repeat_instrument = record["redcap_repeat_instrument"]
+                        repeat_instance = record["redcap_repeat_instance"]
+                        skip = True
+                        if repeat_instrument in expected_repeat_instruments:
+                            if repeat_instance in expected_repeat_instruments[repeat_instrument]:
+                                if visit_label == expected_repeat_instruments[repeat_instrument][repeat_instance]:
+                                    skip = False
+                        if skip:
+                            continue
+                                
+                    subject = record['record_id']
+                    result = self.query(table="candidate", fields=["CandID", "RegistrationCenterID", "RegistrationProjectID"], where={"PSCID":subject})
+                    try:
+                        cand_id = result[0]["CandID"]
+                    except:
+                        self.log_error(method="populate_session_table_override", details=f"{subject}, {visit_label}")
+                        num_error += 1
+                        continue
+                    values = {
+                        'CandID': cand_id,
+                        'Visit_label': visit_label,
+                    }
+                    if not len(self.query(table="session", fields=list(values.keys()), where=values)):
+                        scan_done = 'N'
+                        for visit in visits:
+                            if visit["label"] == visit_label:
+                                scan_done = 'Y' if visit['scan'] else 'N'
+                        center_id = result[0]['RegistrationCenterID']
+                        project_id = result[0]["RegistrationProjectID"]
+                        subproject_id = get_subproject_function(subject)
+                        visit_date = record[date_field]
+
+                        values.update({ 
+                            'CenterID': center_id,
+                            'ProjectID': project_id,
+                            'SubprojectID': subproject_id,
+                            'Current_stage': "Visit",
+                            'Visit': "In Progress",
+                            'Date_visit': visit_date,
+                            'RegisteredBy': "redcapTransfer",
+                            'UserID': "redcapTransfer",
+                            'Scan_done': scan_done,
+                            'languageID': 1
+                        })
+                        try:
+                            self.insert('session', values)
+                            num_new += 1
+                            if self.verbose:
+                                print(f"Added session {subject}, {visit_label}")
+                        except Exception:
+                            self.log_error(method="populate_session_table_override", details=f"{subject}, {visit}")
+                            num_error += 1
+        print(f"{num_old + num_new} sessions in session. {num_old} unchanged, {num_new} added. {num_error} errors.")
+
+    def transfer_data(self, **kwargs):
+        visits = kwargs.get("visits")
+        expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
+        handle_subject_ids = kwargs.get("handle_subject_ids", lambda x: x)
+
+        num_flag = self.query(table="flag", fields=["count(*)"])[0]["count(*)"]
+        num_updated = 0
+        num_error = 0
+
+        for record in self.records:
+
+            for visit in visits:
+                if "match" in visit:
+                    if visit["match"] in record["redcap_event_name"]:
+                        visit_label = visit["label"]
+                        break
+
+            if record["redcap_repeat_instrument"]:
+                if record["redcap_repeat_instrument"] in expected_repeat_instruments:
+                    visit_label = expected_repeat_instruments[record["redcap_repeat_instrument"]][record["redcap_repeat_instance"]]
+
+            subject = handle_subject_ids(record["record_id"])
+            result = self.query(table="candidate", fields=["CandID", "RegistrationCenterID", "RegistrationProjectID"], where={"PSCID": subject})
+            try:
+                cand_id = result[0]["CandID"]
+            except:
+                self.log_error(method="transfer_data", details=f"CandID lookup for {subject}")
+                num_error += 1
+                continue
+            result = self.query(table="session", fields=["ID", "SubprojectID"], where={"CandID": cand_id, "Visit_label": visit_label })
+            try:
+                session_id = result[0]['ID']
+                subproject_id = result[0]['SubprojectID']
+            except:
+                self.log_error(method="transfer_data", details=f"session lookup for {subject}")
+                num_error += 1
+                continue
+            partial_comment_id = f"{cand_id}{subject}{session_id}{subproject_id}"
+
+            tests = self.query(table="flag", fields=["Test_name"], where_like={ "CommentID": f"{partial_comment_id}%" })
+            for test in tests:
+                test_name = test["Test_name"]
+                current_data = self.query(table=test_name, fields=["*"], where_like={ "CommentID": f"{partial_comment_id}%" })
+                values = current_data[0]
+                empty = True
+                for value in values:
+                    if value in record:
+                        if record[value]:
+                            values[value] = record[value]
+                            empty = False
+                        else:
+                            values[value] = None
+                if not empty:
+                    try:
+                        self.update(table=test_name, fields=values, where={ "CommentID": values["CommentID"]})
+                        num_updated += 1
+                        if self.verbose:
+                            print(f"Updated {test_name}, {subject}")
+                    except Exception:
+                        self.log_error(method="transfer_data", details=f"update {test_name}, {subject}")
+                        num_error += 1
+
+        print(f"{num_flag} tests in flag. {num_updated} updated. {num_error} errors.")
