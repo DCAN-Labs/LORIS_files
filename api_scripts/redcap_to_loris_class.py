@@ -470,6 +470,14 @@ class RedcapToLoris:
         num_updated = 0
         num_error = 0
 
+        keys = list(self.records[0].keys())
+        multi_selects = []
+        for key in keys:
+            if "___" in key:
+                split_key = key.split("___")[0]
+                if split_key not in multi_selects:
+                    multi_selects.append(split_key)
+
         for record in self.records:
 
             for visit in visits:
@@ -510,6 +518,15 @@ class RedcapToLoris:
                     if value in record:
                         if record[value]:
                             values[value] = record[value]
+                            empty = False
+                        else:
+                            values[value] = None
+                    elif value in multi_selects:
+                        choice_string = list(filter(lambda field: field["field_name"] == value, self.metadata))[0]["select_choices_or_calculations"]
+                        choices = { choice.split(", ")[0]: choice.split(", ")[1] for choice in choice_string.split(" | ") }
+                        multi_select_values = [choices[choice] for choice in choices if record[f"{value}___{choice}"] == "1"]
+                        if multi_select_values:
+                            values[value] = ",".join(multi_select_values)
                             empty = False
                         else:
                             values[value] = None
