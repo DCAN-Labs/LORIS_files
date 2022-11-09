@@ -360,7 +360,8 @@ class RedcapToLoris:
                                             timestamps.append(row[field])
                             if row["redcap_repeat_instrument"] in expected_repeat_instruments:
                                 if row["redcap_repeat_instance"] in expected_repeat_instruments[row["redcap_repeat_instrument"]]:
-                                    timestamps.append(row[f"{row['redcap_repeat_instrument']}_timestamp"])
+                                    if row[f"{row['redcap_repeat_instrument']}_timestamp"]:
+                                        timestamps.append(row[f"{row['redcap_repeat_instrument']}_timestamp"])
                     try:
                         visit_date = functools.reduce(lambda a, b: a if a < b else b, timestamps)
                     except Exception:
@@ -467,7 +468,8 @@ class RedcapToLoris:
         handle_subject_ids = kwargs.get("handle_subject_ids", lambda x: x)
 
         num_flag = self.query(table="flag", fields=["count(*)"])[0]["count(*)"]
-        num_updated = 0
+        updated_flag = 0
+        updated_inst = 0
         num_error = 0
 
         keys = list(self.records[0].keys())
@@ -533,11 +535,104 @@ class RedcapToLoris:
                 if not empty:
                     try:
                         self.update(table=test_name, fields=values, where={ "CommentID": values["CommentID"]})
-                        num_updated += 1
+                        updated_inst += 1
                         if self.verbose:
                             print(f"Updated {test_name}, {subject}")
                     except Exception:
                         self.log_error(method="transfer_data", details=f"update {test_name}, {subject}")
                         num_error += 1
+                if record[f"{test_name}_complete"] == "2":
+                    flag_values = {
+                        "Data_entry": "Complete",
+                        "Administration": "All"
+                    }
+                    try:
+                        self.update(table="flag", fields=flag_values, where={ "CommentID": values["CommentID"]})
+                        updated_flag += 1
+                        if self.verbose:
+                            print(f"Updated flag: {test_name}, {subject}")
+                    except Exception:
+                        self.log_error(method="transfer_data", details=f"update flag: {test_name}, {subject}")
+                        num_error += 1
 
-        print(f"{num_flag} tests in flag. {num_updated} updated. {num_error} errors.")
+        print(f"{num_flag} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.")
+
+    def populate_candidate_parameters(self, **kwargs):
+        # add to parameter_type_category and parameter_type_category_rel
+        candidate_parameters = kwargs.get("candidate_parameters")
+
+        num_parameters = self.query(table="parameter_candidate", fields=["count(*)"])[0]["count(*)"]
+        num_new = 0
+        num_error = 0
+
+        keys = list(self.records[0].keys())
+        multi_selects = []
+        for key in keys:
+            if "___" in key:
+                split_key = key.split("___")[0]
+                if split_key not in multi_selects:
+                    multi_selects.append(split_key)
+
+        for parameter in candidate_parameters:
+            metadata = list(filter(lambda field: field["field_name"] == parameter, self.metadata))[0]
+            result = self.query(table="parameter_type", fields=["ParameterTypeID"], where={ "Name": parameter })
+            if result:
+                parameter_id = result[0]["ParameterTypeID"]
+            else:
+                values = {
+                    "Name": parameter,
+                    "Type": "varchar(255)",
+                    "Description": metadata["field_label"],
+                    "SourceFrom": "parameter_file",
+                    "Queryable": 1
+                }
+                self.insert("parameter_type", values)
+                parameter_id = self.query(table="parameter_type", fields=["ParameterTypeID"], where={ "Name": parameter })[0]["ParameterTypeID"]
+
+            for record in self.records:
+                empty = True
+                if parameter in multi_selects:
+                    fields = list(filter(lambda field: parameter in field, list(record.keys())))
+                    if record[fields[0]]:
+                        empty = False
+
+                    if not empty:
+                        choice_string = list(filter(lambda field: field["field_name"] == parameter, self.metadata))[0]["select_choices_or_calculations"]
+                        choices = { choice.split(", ")[0]: choice.split(", ")[1] for choice in choice_string.split(" | ") }
+                        multi_select_values = [choices[choice] for choice in choices if record[f"{parameter}___{choice}"] == "1"]
+                        value  = ", ".join(multi_select_values)
+
+                else:
+                    if record[parameter]:
+                        empty = False
+                        choice_string = list(filter(lambda field: field["field_name"] == parameter, self.metadata))[0]["select_choices_or_calculations"]
+                        choices = { choice.split(", ")[0]: choice.split(", ")[1] for choice in choice_string.split(" | ") }
+                        value = choices[record[parameter]]
+                
+                if not empty:
+                    subject = record["record_id"]
+                    result = self.query(table="candidate", fields=["CandID"], where={"PSCID": subject})
+                    try:
+                        cand_id = result[0]["CandID"]
+                    except:
+                        self.log_error(method="populate_candidate_parameters", details=f"CandID lookup for {subject}")
+                        num_error += 1
+                        continue
+
+                    to_insert = { 
+                        "CandID": cand_id,
+                        "ParameterTypeID": parameter_id,
+                        "Value": value
+                    }
+                    if not len(self.query(table="parameter_candidate", fields=list(to_insert.keys()), where=to_insert)):
+                        try:
+                            self.insert("parameter_candidate", to_insert)
+                            num_new += 1
+                            if self.verbose:
+                                print(f"Inserted Candidate Parameter: {parameter}, {subject}")
+                        except Exception:
+                            self.log_error(method="populate_candidate_parameters", details=f"insert parameter_candidate: {parameter}, {subject}")
+                            num_error += 1
+
+        print(f"{num_parameters} candidate parameters in parameter_candidate. {num_new} added. {num_error} errors.")
+

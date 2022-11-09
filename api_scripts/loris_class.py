@@ -273,6 +273,7 @@ class Loris:
 
     def create_instrument_php(self, **kwargs):
         form = kwargs.get('form')
+        include_meta_fields = kwargs.get("include_meta_fields", True)
         field_type = {'text': ['varchar', 'varchar(255)', 'int', 'char', 'tinyint', 'smallint', 'mediumint', 'bigint', 'decimal', 'dec',
                        'float', 'double', 'tinytext'],
               'textarea': ['text', 'mediumtext', 'longtext'],
@@ -284,7 +285,7 @@ class Loris:
             "instrument_table_name": form,
             "validity_required": False,
             "validity_enabled": False,
-            "include_meta_fields": True,
+            "include_meta_fields": include_meta_fields,
             "date_fields":date_fields,
             "loris_num_pages": 1,
             "instrument_name_text": form
@@ -329,12 +330,15 @@ class Loris:
 
     def create_instrument_sql(self, **kwargs):
         form = kwargs.get('form')
+        include_meta_fields = kwargs.get("include_meta_fields", True)
         file_output = kwargs.get('file_output')
         create_table = kwargs.get('create_table')
         drop = kwargs.get('drop', False)
         
         table_line_start = f"CREATE TABLE `{form}` (\n"
-        meta_fields = "  `CommentID` varchar(255) NOT NULL DEFAULT '',\n  `UserID` varchar(255) DEFAULT NULL,\n  `Examiner` varchar(255) DEFAULT NULL,  `Testdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,  `Data_entry_completion_status` enum('Incomplete','Complete') NOT NULL DEFAULT 'Incomplete',`Date_taken` date DEFAULT NULL,  `Candidate_Age` varchar(255) DEFAULT NULL,  `Window_Difference` int(11) DEFAULT NULL,"
+        meta_fields = "  `CommentID` varchar(255) NOT NULL DEFAULT '',\n"  
+        if include_meta_fields:
+            meta_fields += "`UserID` varchar(255) DEFAULT NULL,\n`Examiner` varchar(255) DEFAULT NULL,\n`Testdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n`Data_entry_completion_status` enum('Incomplete','Complete') NOT NULL DEFAULT 'Incomplete',\n`Date_taken` date DEFAULT NULL,\n`Candidate_Age` varchar(255) DEFAULT NULL,\n`Window_Difference` int(11) DEFAULT NULL,"
         table_line_end = """  PRIMARY KEY (`CommentID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8;\n"""
         test_name_insert = f"INSERT IGNORE INTO test_names (Test_name, Full_name, Sub_group) VALUES ('{form}','{form}',1);"
         sql_lines = ''
@@ -364,12 +368,13 @@ class Loris:
         exclude = kwargs.get('exclude', [])
         php = kwargs.get('php', False)
         sql = kwargs.get('sql', False)
+        include_meta_fields = kwargs.get("include_meta_fields", True)
         self.get_all_form_metadata(exclude=exclude)
         for inst in self.metadata:
             if php:
-                self.create_instrument_php(form=inst)
+                self.create_instrument_php(form=inst, include_meta_fields=include_meta_fields)
             if sql:
-                self.create_instrument_sql(form=inst, file_output=True, create_table=True, drop=True)
+                self.create_instrument_sql(form=inst, file_output=True, create_table=True, drop=True, include_meta_fields=include_meta_fields)
 
     def parse_metadata(self):
         # utility function to see what data types are in use
