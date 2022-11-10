@@ -140,6 +140,7 @@ class NDB_BVL_Instrument_conners_3 extends NDB_BVL_Instrument
         $this->form->addElement('static','con3_p_ag_t',"<p style='background-color:silver'>Defiance/Aggression T-Score</p>");
         $this->form->addElement('static','con3_p_pr',"Peer Relations");
         $this->form->addElement('static','con3_p_pr_t',"<p style='background-color:silver'>Peer Relations T-Score</p>");
+        $this->form->addElement('static','',"--------------------");
         $this->form->addElement('static','con3_p_gi',"Conners 3 Global Index Total");
         $this->form->addElement('static','con3_p_an',"DSM-5 ADHD Inattentive");
         $this->form->addElement('static','con3_p_ah',"DSM-5 ADHD Hyperactive-Impulsive");
