@@ -45,7 +45,7 @@ class NDB_BVL_Instrument_adhd_rs_school extends NDB_BVL_Instrument
         $db =& Database::singleton();
         // required fields for data entry completion status
         $this->_requiredElements = array(
-            'Examiner', 'Date_taken'
+            
         );
 
         //MODIFY THIS WHEN THE SCORING IS IMPLEMENTED

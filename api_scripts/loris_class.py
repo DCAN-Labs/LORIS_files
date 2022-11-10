@@ -339,6 +339,8 @@ class Loris:
         meta_fields = "  `CommentID` varchar(255) NOT NULL DEFAULT '',\n"  
         if include_meta_fields:
             meta_fields += "`UserID` varchar(255) DEFAULT NULL,\n`Examiner` varchar(255) DEFAULT NULL,\n`Testdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n`Data_entry_completion_status` enum('Incomplete','Complete') NOT NULL DEFAULT 'Incomplete',\n`Date_taken` date DEFAULT NULL,\n`Candidate_Age` varchar(255) DEFAULT NULL,\n`Window_Difference` int(11) DEFAULT NULL,"
+        else:
+            meta_fields += "`UserID` varchar(255) DEFAULT NULL,\n"
         table_line_end = """  PRIMARY KEY (`CommentID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8;\n"""
         test_name_insert = f"INSERT IGNORE INTO test_names (Test_name, Full_name, Sub_group) VALUES ('{form}','{form}',1);"
         sql_lines = ''
