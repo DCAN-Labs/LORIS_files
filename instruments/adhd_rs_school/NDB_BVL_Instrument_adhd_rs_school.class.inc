@@ -33,7 +33,7 @@ class NDB_BVL_Instrument_adhd_rs_school extends NDB_BVL_Instrument
         //The array of dates/timestamps to convert to database dates/timestamps
         //Any HTML_Quickform date elements must be listed here
         $this->dateTimeFields = array(
-              "Date_taken" 
+
         );
 
         //The array of selects with multiple answers allowed
@@ -45,7 +45,7 @@ class NDB_BVL_Instrument_adhd_rs_school extends NDB_BVL_Instrument
         $db =& Database::singleton();
         // required fields for data entry completion status
         $this->_requiredElements = array(
-            
+
         );
 
         //MODIFY THIS WHEN THE SCORING IS IMPLEMENTED
@@ -85,65 +85,157 @@ class NDB_BVL_Instrument_adhd_rs_school extends NDB_BVL_Instrument
     function _main()
     {
         // display test name
-        $this->addHeader("Attention and Behavior Rating form, School Version: Child (English)");
+        $this->addHeader("Attention and Behavior Rating form, School Version: Child");
 
-        // automatically adds examiner & date of administration
-        $this->_addMetadataFields();
+        $this->addHeader("Calculated Fields");
 
-        $this->addHeader("Inattention");
-            $this->form->addElement('static','inatt_raw',"Inattention Raw Score");
-            $this->form->addElement('static','inatt_sx',"Inattention SX");
-            $this->form->addElement('static','inatt_tscore',"Innatention T-Score");
-        $this->addHeader("Hyperactivity");
-            $this->form->addElement('static','hyp_raw',"Hyperactivity Raw Score");
-            $this->form->addElement('static','hyp_sx',"Hyperactivity SX");
-            $this->form->addElement('static','hyp_tscore',"Hyperactivity T-Score");
+        $this->addHeader("<h3>Totals</h3>");
+        $this->form->addElement("static", "adhd_rs_school_total", "Total Score");
+        $this->form->addElement("static", "adhd_rs_school_total_t", "<p style='background-color:silver'>Total T-Score</p>");
+
+        $this->addHeader("<h3>Inattention</h3>");
+        $this->form->addElement("static", "adhd_rs_school_inattention_total", "Inattention Total Score");
+        $this->form->addElement("static", "adhd_rs_school_inattention_symptoms", "Inattention Symptoms");
+        $this->form->addElement("static", "adhd_rs_school_inattention_t", "<p style='background-color:silver'>Inattention T-Score</p>");
+        
+        $this->addHeader("<h3>Hyperactivity</h3>");
+        $this->form->addElement("static", "adhd_rs_school_hyperactivity_total", "Hyperactivity Total Score");
+        $this->form->addElement("static", "adhd_rs_school_hyperactivity_symptoms", "Hyperactivity Symptoms");
+        $this->form->addElement("static", "adhd_rs_school_hyperactivity_t", "<p style='background-color:silver'>Hyperactivity T-Score</p>");
+
+        $this->addHeader("<h3>Questions");        
+        $this->addHeader("<h3>Inattention</h3>");
+
+        $this->form->addElement('select', 'adhd_rs_school_q1', "Fails to give close attention to details or makes careless mistakes in schoolwork or during other activities ", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q2', "Has difficulty sustaining attention in tasks or play activities", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q3', "Does not seem to listen when spoken to directly", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q4', "Does not follow through on instructions and fails to finish schoolwork or chores", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q5', "Has difficulty organizing tasks and activities", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q6', "Avoids, dislikes, or is reluctant to engage in tasks that require sustained mental effort (e.g., schoolwork or homework)", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q7', "Loses things necessary for tasks or activities (e.g., school materials, pencils, books, eyeglasses)", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q8', "Easily distracted by extraneous stimuli ", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q9', "Forgetful in daily activities ", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->addHeader("<h4>Inattention Impairment</h4>");
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_1', "Getting along with school professionals ", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_2', "Getting along with other children ", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_3', "Completing or returning homework", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_4', "Performing academically in school", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_5', "Controlling behavior in school", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_6', "Feeling good about himself/herself", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        
+        $this->addHeader("<h3>Hyperactivity</h3>");
+        $this->form->addElement('select', 'adhd_rs_school_q10', "Fidgets or taps hands or feet or squirms in seat ", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q11', "Leaves seat in situations when remaining seated is expected", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q12', "Runs about or climbs in situations where it is inappropriate", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q13', "Unable to play or engage in leisure activities quietly", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q14', "'On the go' acts as if 'driven by a motor'", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q15', "Talks excessively", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q16', "Blurts out an answer before a question has been completed", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q17', "Has difficulty waiting his or her turn (e.g., while waiting in line)", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_q18', "Interrupts or intrudes on others", array(''=>'', '0'=>"0 = Never or Rarely", '1'=>"1 = Sometimes", '2'=>"2 = Often", '3'=>"3 = Very Often", 'not_answered'=>'Not Answered'));
+        $this->addHeader("<h4>Hyperactivity Impairment</h4>");
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_7', "Getting along with school professionals", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_8', "Getting along with other children ", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_9', "Completing or returning homework", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_10', "Performing academically in school", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_11', "Controlling behavior in school", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
+        $this->form->addElement('select', 'adhd_rs_school_problem_severity_12', "Feeling good about himself/herself", array(''=>'', '0'=>"0 = No Problem", '1'=>"1 = Minor Problem", '2'=>"2 = Moderate Problem", '3'=>"3 = Severe Problem", 'not_answered'=>'Not Answered'));
     }
 
-
-    function _page1()
+    /**
+    * Scoring function
+    *
+    * @return void
+    * @access public
+    */
+    function score():void
     {
-        $this->addHeader("How often does this child display this behavior?");
-        $this->form->addElement('select', 'q01', "Fails to give close attention to details or makes careless mistakes in schoolwork or during other activites", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q02', "Has difficulty sustaining attention in tasks or play activites", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q03', "Does not seem to listen when spoken to directly", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q04', "Does not folllow through on instructions and fails to finish schoolwork", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q05', "Has difficulty organizing tasks and activities", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q06', "Avoids, dislikes, or is reluctant to engage in tasks hat require sustained mental effort (e.g., schoolwork or homework)", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q07', "Loses things necessary for tasks or activities (e.g., school materials, pencils, books)", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q08', "Easily distracted by extraneous stimuli", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q09', "Forgetful in daily activities", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->addHeader("How often do the nine behaviors in the previous question cause problems for this child?");
-        $this->form->addElement('select', 'q10', "Getting along with school professionals", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q11', "Getting along with other children", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q12', "Completing or returning homework", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q13', "Performing academically in school", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q14', "Controlling behavior in school", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q15', "Feeling good about herself/himself", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
+        if ($this->_determineRequiredElementsCompletedFlag() == "Incomplete") {
+            return;
+        }
+            
+        $db =& Database::singleton();
+        //Get raw questions point values
+        $record = $db->pselectRow("SELECT * FROM $this->table WHERE CommentID=:cid",array("cid" =>$this->getCommentID() ));
+            
+        $scores = array(
+            'adhd_rs_school_inattention_total' => null,
+            'adhd_rs_school_inattention_symptoms' => null,
+            'adhd_rs_school_inattention_t' => null,
+            'adhd_rs_school_hyperactivity_total' => null,
+            'adhd_rs_school_hyperactivity_symptoms' => null,
+            'adhd_rs_school_hyperactivity_t' => null,
+            'adhd_rs_school_total' => null,
+            'adhd_rs_school_total_t' => null,
+        );
+        
+        $inattention_scores = array('adhd_rs_school_q1', 'adhd_rs_school_q2', 'adhd_rs_school_q3', 'adhd_rs_school_q4', 'adhd_rs_school_q5', 'adhd_rs_school_q6', 'adhd_rs_school_q7', 'adhd_rs_school_q8', 'adhd_rs_school_q9');
+        $hyperactivity_scores = array('adhd_rs_school_q10', 'adhd_rs_school_q11', 'adhd_rs_school_q12', 'adhd_rs_school_q13', 'adhd_rs_school_q14', 'adhd_rs_school_q15', 'adhd_rs_school_q16', 'adhd_rs_school_q17', 'adhd_rs_school_q18');
+
+        foreach($hyperactivity_scores as $question) {
+            $value = $record[$question];
+			$scores['adhd_rs_school_hyperactivity_total'] += $value;
+            if ($value >= 2) {
+                $scores["adhd_rs_school_hyperactivity_symptoms"] += 1;
+            } else {
+                $scores["adhd_rs_school_hyperactivity_symptoms"] += 0;
+            }
+		}
+
+        foreach($inattention_scores as $question) {
+            $value = $record[$question];
+			$scores['adhd_rs_school_inattention_total'] += $value;
+            if ($value >= 2) {
+                $scores["adhd_rs_school_inattention_symptoms"] += 1;
+            } else {
+                $scores["adhd_rs_school_inattention_symptoms"] += 0;
+            }
+		}
+
+        if($this->getSessionID() != NULL) {
+            $timepoint =& TimePoint::singleton($this->getSessionID());
+            $candidate   = \NDB_Factory::singleton()->candidate(
+                $timepoint->getCandID()
+            );
+            $sex = $candidate->getCandidateSex()->value;
+        }
+
+        $inatt_normative_means = array(
+            'Female' => 5.33,
+            'Male' => 9.00,
+        );
+        $inatt_normative_stand_devs = array(
+            'Female' => 6.54,
+            'Male' => 8.20,
+        );
+
+        $hyper_normative_means = array(
+            'Female' => 3.06,
+            'Male' => 6.78,
+        );
+        $hyper_normative_stand_devs = array(
+            'Female' => 4.71,
+            'Male' => 7.22,
+        );
+
+        $total_normative_means = array(
+            'Female' => 8.39,
+            'Male' => 15.78,
+        );
+        $total_normative_stand_devs = array(
+            'Female' => 10.43,
+            'Male' => 14.57,
+        );
+
+        $scores['adhd_rs_school_inattention_t'] = intval((($scores["adhd_rs_school_inattention_total"] - $inatt_normative_means[$sex]) / $inatt_normative_stand_devs[$sex]) * 10 + 50);
+        $scores['adhd_rs_school_hyperactivity_t'] = intval((($scores["adhd_rs_school_hyperactivity_total"] - $hyper_normative_means[$sex]) / $hyper_normative_stand_devs[$sex]) * 10 + 50);
+        
+        $scores['adhd_rs_school_total'] = $scores['adhd_rs_school_inattention_total'] + $scores["adhd_rs_school_hyperactivity_total"];
+        $scores['adhd_rs_school_total_t'] = intval((($scores["adhd_rs_school_total"] - $total_normative_means[$sex]) / $total_normative_stand_devs[$sex]) * 10 + 50);
+
+        // save the scores
+        $result = $db->update($this->table, $scores, array("CommentID"=>$this->getCommentID()));
     }
-
-
-    function _page2()
-    {
-        $this->addHeader("How often does this child display this behavior?");
-        $this->form->addElement('select', 'q16', "Fidgets or taps hands or feet or squirms in seat", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q17', "Leaves seat in situations when remaining seated is expected", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q18', "Runs about or climbs in situations where it is inappropirate", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q19', "Unable to play or engage in leisure activities quietly", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q20', "'On the go' acts as if 'driven by a motor'", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q21', "Talks excessively", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q22', "Blurts our an answer before a question has been completed", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q23', "Has difficulty waiting their turn (e.g., while waiting in line)", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q24', "Interrupts or intrudes on others", array(''=>'', '0'=>"Rarely", '1'=>"Sometimes", '2'=>"Often", '3'=>"Very Often", 'not_answered'=>'Not Answered'));
-        $this->addHeader("How often do the nine behaviors in the previous question cause problems for this child?");
-        $this->form->addElement('select', 'q25', "Getting along with school professionals", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q26', "Getting along with other children", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q27', "Completing or returning homework", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q28', "Performing academically in school", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q29', "Controlling behavior in school", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-        $this->form->addElement('select', 'q30', "Feeling good about herself/himself", array(''=>'', '0'=>"No Problem", '1'=>"Minor Problem", '2'=>"Moderate Problem", '3'=>"Severe Problem", 'not_answered'=>'Not Answered'));
-    }
-
 
 }
 
