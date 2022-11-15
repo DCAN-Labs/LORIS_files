@@ -227,9 +227,9 @@ class NDB_BVL_Instrument_srs2_schoolage extends NDB_BVL_Instrument
                 $value = $record[$question_name];
                 if ($value){
                     if (in_array($question, $forward_scores)) {
-                        $scores[$category_name] += $value;
+                        $scores[$category_name] += $value - 1;
                     } else {
-                        $adjusted_value = 3 - $value;
+                        $adjusted_value = 4 - $value;
                         $scores["$category_name"] += $adjusted_value;
                     }
                 } else {
