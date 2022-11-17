@@ -1,6 +1,5 @@
 CREATE TABLE `masc_2_child` (
   `CommentID` varchar(255) NOT NULL DEFAULT '',
-  `masc_d_instructions` varchar(255) DEFAULT NULL,
   `masc_1` enum('0','1','2','3','not_answered') DEFAULT NULL,
   `masc_2` enum('0','1','2','3','not_answered') DEFAULT NULL,
   `masc_3` enum('0','1','2','3','not_answered') DEFAULT NULL,
@@ -75,5 +74,6 @@ CREATE TABLE `masc_2_child` (
   `masc_tr_t` tinyint DEFAULT NULL,
   `masc_ha` tinyint DEFAULT NULL,
   `masc_ha_t` tinyint DEFAULT NULL,
+  `UserID` varchar(45) DEFAULT NULL,
   PRIMARY KEY (`CommentID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;

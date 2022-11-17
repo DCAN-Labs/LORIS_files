@@ -15,5 +15,6 @@ CREATE TABLE `cdi_2_child` (
   `cdi_12` enum('1','2','3','not_answered') DEFAULT NULL,
   `cdi_total` tinyint DEFAULT NULL,
   `cdi_t` tinyint DEFAULT NULL,
+  `UserID` varchar(45) DEFAULT NULL,
   PRIMARY KEY (`CommentID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;

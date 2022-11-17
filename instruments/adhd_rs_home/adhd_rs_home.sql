@@ -38,5 +38,6 @@ CREATE TABLE `adhd_rs_home` (
   `adhd_rs_home_inattention_t` tinyint DEFAULT NULL,
   `adhd_rs_home_total` tinyint DEFAULT NULL,
   `adhd_rs_home_total_t` tinyint DEFAULT NULL,
+  `UserID` varchar(45) DEFAULT NULL,
   PRIMARY KEY (`CommentID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;

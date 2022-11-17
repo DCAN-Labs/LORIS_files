@@ -141,5 +141,6 @@ CREATE TABLE `conners_3_teacher` (
   `con_t_inconsistency_a` tinyint DEFAULT NULL,
   `con_t_inconsistency_b` tinyint DEFAULT NULL,
   `con_t_probability` tinyint DEFAULT NULL,
+  `UserID` varchar(45) DEFAULT NULL,
   PRIMARY KEY (`CommentID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;

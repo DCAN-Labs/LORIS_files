@@ -137,5 +137,6 @@ CREATE TABLE `conners_3` (
   `con3_p_ef_t` tinyint DEFAULT NULL,
   `con3_p_ag_t` tinyint DEFAULT NULL,
   `con3_p_pr_t` tinyint DEFAULT NULL,
+  `UserID` varchar(45) DEFAULT NULL,
   PRIMARY KEY (`CommentID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
