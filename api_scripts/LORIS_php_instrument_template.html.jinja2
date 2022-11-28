@@ -108,9 +108,9 @@ class NDB_BVL_Instrument_{{ param.instrument_table_name }} extends NDB_BVL_Instr
     {% if q.page == pg and q.front_end %}
         {% if q.var_type in field_type.text%}
             {% if q.status %}
-            $this->addTextElement('{{ q.name }}',"{{ q.text }}");
+        $this->addTextElement('{{ q.name }}',"{{ q.text }}");
             {% else %}
-            $this->form->addElement('text','{{ q.name }}',"{{ q.text }}");
+        $this->form->addElement('text','{{ q.name }}',"{{ q.text }}");
             {% endif %}
         {% elif q.var_type in field_type.textarea %}
         $this->addTextAreaElement('{{ q.name }}',"{{ q.text }}");

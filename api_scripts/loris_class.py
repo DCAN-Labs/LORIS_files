@@ -237,7 +237,7 @@ class Loris:
             field_type_lookup = {
                 'radio': 'enum',
                 'text': 'varchar(255)',
-                'descriptive':'varchar(255)',
+                'descriptive':'',
                 'dropdown':'enum',
                 'notes':'text',
                 'calc':'int',
