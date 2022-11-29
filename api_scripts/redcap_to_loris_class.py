@@ -86,8 +86,9 @@ class RedcapToLoris:
         result = r.json()
         print(f'Get {name} HTTP Status: ' + str(r.status_code))
 
-        with open(f'outputs/json/{name}.json', 'w+') as file:
-            json.dump(result, file, indent=4)
+        if self.verbose:
+            with open(f'outputs/json/{name}.json', 'w+') as file:
+                json.dump(result, file, indent=4)
 
         return result
 
@@ -404,9 +405,10 @@ class RedcapToLoris:
         for override_visit in override_visits:
             visit_label = override_visit["label"]
             date_field = override_visit["date_field"]
+            identifier = override_visit["identifier"]
             
             for record in self.records:
-                if record[date_field]:
+                if record[identifier]:
                     if record["redcap_repeat_instrument"]:
                         repeat_instrument = record["redcap_repeat_instrument"]
                         repeat_instance = record["redcap_repeat_instance"]

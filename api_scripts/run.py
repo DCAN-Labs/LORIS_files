@@ -39,9 +39,9 @@ expected_repeat_instruments = {
 }
 
 override_visits = [
-    { "label": 'MRIVisit2', "date_field": 'mri_scan_date'},
-    { "label": 'MRIVisit3', "date_field": 'mri_scan_date'},
-    { "label": 'MRIVisit4', "date_field": 'mri_scan_date'}
+    { "label": 'MRIVisit2', "date_field": 'mri_scan_date', "identifier": 'mri_scan_date'},
+    { "label": 'MRIVisit3', "date_field": 'mri_scan_date', "identifier": 'mri_scan_date'},
+    { "label": 'MRIVisit4', "date_field": 'mri_scan_date', "identifier": 'mri_scan_date'}
 ]
 
 def handle_subject_ids(subject):
