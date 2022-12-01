@@ -285,6 +285,13 @@ class RedcapToLoris:
                 if form["form"] in expected_repeat_instruments:
                     visit_labels = list(expected_repeat_instruments[form["form"]].values())
                 else:
+                    unexpected_repeat = False
+                    for form_event in self.repeating_forms_events:
+                        if form_event["event_name"] == form["unique_event_name"] and form_event["form_name"] == form["form"]:
+                            unexpected_repeat = True
+                    if unexpected_repeat:
+                        continue
+
                     visit_label = 'NULL'
                     for visit in visits:
                         if "match" in visit:
@@ -292,6 +299,7 @@ class RedcapToLoris:
                                 visit_label = visit["label"]
                                 break
                     visit_labels = [visit_label]
+
                 for visit_label in visit_labels:
                     values = {
                         "Test_name": form["form"],

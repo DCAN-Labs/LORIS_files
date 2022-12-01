@@ -48,6 +48,7 @@ DataTransfer.get_records()
 DataTransfer.get_form_event_mapping()
 DataTransfer.get_metadata()
 DataTransfer.get_report(report_id)
+DataTransfer.get_repeating_forms_events()
 
 # setup LORIS tables for data ingestion
 DataTransfer.populate_candidate_table(**candidate_params)
