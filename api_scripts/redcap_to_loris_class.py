@@ -142,6 +142,15 @@ class RedcapToLoris:
         }
         self.reports[report_id] = self.get_data(data)
 
+    def get_repeating_forms_events(self):
+        data = {
+            'token': self.token,
+            'content': 'repeatingFormsEvents',
+            'format': 'json',
+            'returnFormat': 'json'
+        }
+        self.repeating_forms_events = self.get_data(data)
+
     ## Creating Candidates
 
     def get_existing_candidates(self):
@@ -259,7 +268,7 @@ class RedcapToLoris:
                 except Exception:
                     self.log_error(method="populate_visit_table", details=visit["label"])
                     num_error += 1
-        f"{num_old + num_new} visits in visit. {num_old} unchanged, {num_new} added. {num_error} errors."
+        print(f"{num_old + num_new} visits in visit. {num_old} unchanged, {num_new} added. {num_error} errors.")
 
     def populate_test_battery_table(self, **kwargs):
         visits = kwargs.get("visits")
