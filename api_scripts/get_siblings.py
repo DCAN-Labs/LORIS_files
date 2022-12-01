@@ -13,23 +13,13 @@ loris = RedcapToLoris()
 loris.get_records()
 
 visits = [
-    {"label": 'Sibling1', "scan": False},
-    {"label": 'Sibling2', "scan": False},
-    {"label": 'Sibling3', "scan": False},
-    {"label": 'Sibling4', "scan": False},
-    {"label": 'Sibling5', "scan": False},
-    {"label": 'Sibling6', "scan": False},
-    {"label": 'Sibling7', "scan": False}
-]
-
-override_visits = [
-    { "label": 'Sibling1', "date_field": 'sib_date', "identifier": 'sib_1_dob'},
-    { "label": 'Sibling2', "date_field": 'sib_date', "identifier": 'sib_1_dob_2'},
-    { "label": 'Sibling3', "date_field": 'sib_date', "identifier": 'sib_1_dob_3'},
-    { "label": 'Sibling4', "date_field": 'sib_date', "identifier": 'sib_1_dob_4'},
-    { "label": 'Sibling5', "date_field": 'sib_date', "identifier": 'sib_1_dob_5'},
-    { "label": 'Sibling6', "date_field": 'sib_date', "identifier": 'sib_1_dob_6'},
-    { "label": 'Sibling7', "date_field": 'sib_date', "identifier": 'sib_1_dob_7'},
+    { "label": 'Sibling1', "scan": False, "date_field": 'sib_date', "override": 'sib_1_dob'},
+    { "label": 'Sibling2', "scan": False, "date_field": 'sib_date', "override": 'sib_1_dob_2'},
+    { "label": 'Sibling3', "scan": False, "date_field": 'sib_date', "override": 'sib_1_dob_3'},
+    { "label": 'Sibling4', "scan": False, "date_field": 'sib_date', "override": 'sib_1_dob_4'},
+    { "label": 'Sibling5', "scan": False, "date_field": 'sib_date', "override": 'sib_1_dob_5'},
+    { "label": 'Sibling6', "scan": False, "date_field": 'sib_date', "override": 'sib_1_dob_6'},
+    { "label": 'Sibling7', "scan": False, "date_field": 'sib_date', "override": 'sib_1_dob_7'}
 ]
 
 def get_subproject_function(subject):
@@ -41,7 +31,7 @@ def get_subproject_function(subject):
         print("Invalid Subject ID for get_subproject_function")
         return -1
 
-# loris.populate_session_table_override(visits=visits, override_visits=override_visits, get_subproject_function=get_subproject_function)
+# loris.populate_session_table_override(visits=visits, get_subproject_function=get_subproject_function)
 
 tests = {
     "srs2_schoolage": "srs_school_age_dob",
@@ -75,9 +65,9 @@ for record in loris.records:
     if record['sib_1_dob']:
         sibling_records = [subject_record for subject_record in loris.records if record["record_id"] == subject_record["record_id"] and subject_record["redcap_repeat_instrument"] in tests.keys()]
         for sibling_record in sibling_records:
-            for visit in override_visits:
+            for visit in visits:
                 for test, dob_field in tests.items():
-                    if record[visit["identifier"]] == sibling_record[dob_field] and sibling_record[dob_field] != "":
+                    if record[visit["override"]] == sibling_record[dob_field] and sibling_record[dob_field] != "":
                         updated_inst, updated_flag, num_error = loris.update_data(handle_subject_ids=handle_subject_ids, record=sibling_record, multi_selects=multi_selects, visit_label=visit["label"], updated_inst=updated_inst, updated_flag=updated_flag, num_error=num_error)
 
 print(f"{num_flag} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.")
