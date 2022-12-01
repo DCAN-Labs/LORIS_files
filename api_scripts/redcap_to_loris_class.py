@@ -403,7 +403,6 @@ class RedcapToLoris:
 
     def populate_session_table_override(self, **kwargs):
         visits = kwargs.get("visits")
-        override_visits = kwargs.get("override_visits")
         get_subproject_function = kwargs.get("get_subproject_function")
         expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
 
@@ -411,66 +410,64 @@ class RedcapToLoris:
         num_new = 0
         num_error = 0
 
-        for override_visit in override_visits:
-            visit_label = override_visit["label"]
-            date_field = override_visit["date_field"]
-            identifier = override_visit["identifier"]
-            
-            for record in self.records:
-                if record[identifier]:
-                    if record["redcap_repeat_instrument"]:
-                        repeat_instrument = record["redcap_repeat_instrument"]
-                        repeat_instance = record["redcap_repeat_instance"]
-                        skip = True
-                        if repeat_instrument in expected_repeat_instruments:
-                            if repeat_instance in expected_repeat_instruments[repeat_instrument]:
-                                if visit_label == expected_repeat_instruments[repeat_instrument][repeat_instance]:
-                                    skip = False
-                        if skip:
-                            continue
-                                
-                    subject = record['record_id']
-                    result = self.query(table="candidate", fields=["CandID", "RegistrationCenterID", "RegistrationProjectID"], where={"PSCID":subject})
-                    try:
-                        cand_id = result[0]["CandID"]
-                    except:
-                        self.log_error(method="populate_session_table_override", details=f"{subject}, {visit_label}")
-                        num_error += 1
-                        continue
-                    values = {
-                        'CandID': cand_id,
-                        'Visit_label': visit_label,
-                    }
-                    if not len(self.query(table="session", fields=list(values.keys()), where=values)):
-                        scan_done = 'N'
-                        for visit in visits:
-                            if visit["label"] == visit_label:
-                                scan_done = 'Y' if visit['scan'] else 'N'
-                        center_id = result[0]['RegistrationCenterID']
-                        project_id = result[0]["RegistrationProjectID"]
-                        subproject_id = get_subproject_function(subject)
-                        visit_date = record[date_field]
-
-                        values.update({ 
-                            'CenterID': center_id,
-                            'ProjectID': project_id,
-                            'SubprojectID': subproject_id,
-                            'Current_stage': "Visit",
-                            'Visit': "In Progress",
-                            'Date_visit': visit_date,
-                            'RegisteredBy': "redcapTransfer",
-                            'UserID': "redcapTransfer",
-                            'Scan_done': scan_done,
-                            'languageID': 1
-                        })
+        for visit in visits:
+            if 'override' in visit:
+                visit_label = visit["label"]
+                date_field = visit["date_field"]
+                override = visit["override"]
+                scan_done = 'Y' if visit['scan'] else 'N'
+                
+                for record in self.records:
+                    if record[override]:
+                        if record["redcap_repeat_instrument"]:
+                            repeat_instrument = record["redcap_repeat_instrument"]
+                            repeat_instance = record["redcap_repeat_instance"]
+                            skip = True
+                            if repeat_instrument in expected_repeat_instruments:
+                                if repeat_instance in expected_repeat_instruments[repeat_instrument]:
+                                    if visit_label == expected_repeat_instruments[repeat_instrument][repeat_instance]:
+                                        skip = False
+                            if skip:
+                                continue
+                                    
+                        subject = record['record_id']
+                        result = self.query(table="candidate", fields=["CandID", "RegistrationCenterID", "RegistrationProjectID"], where={"PSCID":subject})
                         try:
-                            self.insert('session', values)
-                            num_new += 1
-                            if self.verbose:
-                                print(f"Added session {subject}, {visit_label}")
-                        except Exception:
-                            self.log_error(method="populate_session_table_override", details=f"{subject}, {visit}")
+                            cand_id = result[0]["CandID"]
+                        except:
+                            self.log_error(method="populate_session_table_override", details=f"{subject}, {visit_label}")
                             num_error += 1
+                            continue
+                        values = {
+                            'CandID': cand_id,
+                            'Visit_label': visit_label,
+                        }
+                        if not len(self.query(table="session", fields=list(values.keys()), where=values)):
+                            center_id = result[0]['RegistrationCenterID']
+                            project_id = result[0]["RegistrationProjectID"]
+                            subproject_id = get_subproject_function(subject)
+                            visit_date = record[date_field]
+
+                            values.update({ 
+                                'CenterID': center_id,
+                                'ProjectID': project_id,
+                                'SubprojectID': subproject_id,
+                                'Current_stage': "Visit",
+                                'Visit': "In Progress",
+                                'Date_visit': visit_date,
+                                'RegisteredBy': "redcapTransfer",
+                                'UserID': "redcapTransfer",
+                                'Scan_done': scan_done,
+                                'languageID': 1
+                            })
+                            try:
+                                self.insert('session', values)
+                                num_new += 1
+                                if self.verbose:
+                                    print(f"Added session {subject}, {visit_label}")
+                            except Exception:
+                                self.log_error(method="populate_session_table_override", details=f"{subject}, {visit}")
+                                num_error += 1
         print(f"{num_old + num_new} sessions in session. {num_old} unchanged, {num_new} added. {num_error} errors.")
 
     def transfer_data(self, **kwargs):

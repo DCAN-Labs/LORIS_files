@@ -18,9 +18,9 @@ visits = [
     { "label": "Visit1", "match": "visit_1", "scan": False },
     { "label": "Visit2", "match": "visit_2", "scan": False },
     { "label": "MRIVisit1", "match": "mri_visit", "scan": True },
-    { "label": "MRIVisit2", "scan": True },
-    { "label": "MRIVisit3", "scan": True },
-    { "label": "MRIVisit4", "scan": True }
+    { "label": "MRIVisit2", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_scan_date' },
+    { "label": "MRIVisit3", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_scan_date' },
+    { "label": "MRIVisit4", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_scan_date' }
 ]
 
 report_id = 47678
@@ -38,12 +38,6 @@ expected_repeat_instruments = {
     'mri_data_entry_summary': { 1: "MRIVisit1", 2: "MRIVisit2", 3: "MRIVisit3", 4: "MRIVisit4" }
 }
 
-override_visits = [
-    { "label": 'MRIVisit2', "date_field": 'mri_scan_date', "identifier": 'mri_scan_date'},
-    { "label": 'MRIVisit3', "date_field": 'mri_scan_date', "identifier": 'mri_scan_date'},
-    { "label": 'MRIVisit4', "date_field": 'mri_scan_date', "identifier": 'mri_scan_date'}
-]
-
 def handle_subject_ids(subject):
     return subject[:12]
 
@@ -60,12 +54,12 @@ DataTransfer.populate_candidate_table(**candidate_params)
 DataTransfer.populate_visit_table(visits=visits)
 DataTransfer.populate_test_battery_table(exclude=exclude_all, visits=visits, expected_repeat_instruments=expected_repeat_instruments)
 DataTransfer.populate_session_table(visits=visits, get_subproject_function=get_subproject_function, report_id=report_id, expected_repeat_instruments=expected_repeat_instruments)
-DataTransfer.populate_session_table_override(visits=visits, override_visits=override_visits, get_subproject_function=get_subproject_function, expected_repeat_instruments=expected_repeat_instruments)
+DataTransfer.populate_session_table_override(visits=visits, get_subproject_function=get_subproject_function, expected_repeat_instruments=expected_repeat_instruments)
 
 # import data
 DataTransfer.transfer_data(visits=visits, expected_repeat_instruments=expected_repeat_instruments, handle_subject_ids=handle_subject_ids)
 
-DataTransfer.commit()
+# DataTransfer.commit()
 
 
 del DataTransfer
