@@ -493,71 +493,85 @@ class RedcapToLoris:
             if record["redcap_repeat_instrument"]:
                 if record["redcap_repeat_instrument"] in expected_repeat_instruments:
                     visit_label = expected_repeat_instruments[record["redcap_repeat_instrument"]][record["redcap_repeat_instance"]]
+                else:
+                    break
 
-            subject = handle_subject_ids(record["record_id"])
-            result = self.query(table="candidate", fields=["CandID", "RegistrationCenterID", "RegistrationProjectID"], where={"PSCID": subject})
-            try:
-                cand_id = result[0]["CandID"]
-            except:
-                self.log_error(method="transfer_data", details=f"CandID lookup for {subject}")
-                num_error += 1
-                continue
-            result = self.query(table="session", fields=["ID", "SubprojectID"], where={"CandID": cand_id, "Visit_label": visit_label })
-            try:
-                session_id = result[0]['ID']
-                subproject_id = result[0]['SubprojectID']
-            except:
-                self.log_error(method="transfer_data", details=f"session lookup for {subject}")
-                num_error += 1
-                continue
-            partial_comment_id = f"{cand_id}{subject}{session_id}{subproject_id}"
-
-            tests = self.query(table="flag", fields=["Test_name"], where_like={ "CommentID": f"{partial_comment_id}%" })
-            for test in tests:
-                test_name = test["Test_name"]
-                current_data = self.query(table=test_name, fields=["*"], where_like={ "CommentID": f"{partial_comment_id}%" })
-                values = current_data[0]
-                empty = True
-                for value in values:
-                    if value in record:
-                        if record[value]:
-                            values[value] = record[value]
-                            empty = False
-                        else:
-                            values[value] = None
-                    elif value in multi_selects:
-                        choice_string = list(filter(lambda field: field["field_name"] == value, self.metadata))[0]["select_choices_or_calculations"]
-                        choices = { choice.split(", ")[0]: choice.split(", ")[1] for choice in choice_string.split(" | ") }
-                        multi_select_values = [choices[choice] for choice in choices if record[f"{value}___{choice}"] == "1"]
-                        if multi_select_values:
-                            values[value] = ",".join(multi_select_values)
-                            empty = False
-                        else:
-                            values[value] = None
-                if not empty:
-                    try:
-                        self.update(table=test_name, fields=values, where={ "CommentID": values["CommentID"]})
-                        updated_inst += 1
-                        if self.verbose:
-                            print(f"Updated {test_name}, {subject}")
-                    except Exception:
-                        self.log_error(method="transfer_data", details=f"update {test_name}, {subject}")
-                        num_error += 1
-                if record[f"{test_name}_complete"] == "2":
-                    flag_values = {
-                        "Data_entry": "Complete",
-                        "Administration": "All"
-                    }
-                    try:
-                        self.update(table="flag", fields=flag_values, where={ "CommentID": values["CommentID"]})
-                        updated_flag += 1
-                        if self.verbose:
-                            print(f"Updated flag: {test_name}, {subject}")
-                    except Exception:
-                        self.log_error(method="transfer_data", details=f"update flag: {test_name}, {subject}")
-                        num_error += 1
+            updated_inst, updated_flag, num_error = self.update_data(handle_subject_ids=handle_subject_ids, record=record, multi_selects=multi_selects, visit_label=visit_label, updated_inst=updated_inst, updated_flag=updated_flag, num_error=num_error)
 
         print(f"{num_flag} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.")
+
+    def update_data(self, **kwargs):
+        handle_subject_ids = kwargs.get("handle_subject_ids", lambda x: x)
+        record = kwargs.get("record")
+        multi_selects = kwargs.get("multi_selects")
+        visit_label = kwargs.get("visit_label")
+        updated_inst = kwargs.get("updated_inst")
+        updated_flag = kwargs.get("updated_flag")
+        num_error = kwargs.get("num_error")
+
+        subject = handle_subject_ids(record["record_id"])
+        result = self.query(table="candidate", fields=["CandID", "RegistrationCenterID", "RegistrationProjectID"], where={"PSCID": subject})
+        try:
+            cand_id = result[0]["CandID"]
+        except:
+            self.log_error(method="transfer_data", details=f"CandID lookup for {subject}")
+            num_error += 1
+            return updated_inst, updated_flag, num_error
+        result = self.query(table="session", fields=["ID", "SubprojectID"], where={"CandID": cand_id, "Visit_label": visit_label })
+        try:
+            session_id = result[0]['ID']
+            subproject_id = result[0]['SubprojectID']
+        except:
+            self.log_error(method="transfer_data", details=f"session lookup for {subject}")
+            num_error += 1
+            return updated_inst, updated_flag, num_error
+        partial_comment_id = f"{cand_id}{subject}{session_id}{subproject_id}"
+
+        tests = self.query(table="flag", fields=["Test_name"], where_like={ "CommentID": f"{partial_comment_id}%" })
+        for test in tests:
+            test_name = test["Test_name"]
+            current_data = self.query(table=test_name, fields=["*"], where_like={ "CommentID": f"{partial_comment_id}%" })
+            values = current_data[0]
+            empty = True
+            for value in values:
+                if value in record:
+                    if record[value]:
+                        values[value] = record[value]
+                        empty = False
+                    else:
+                        values[value] = None
+                elif value in multi_selects:
+                    choice_string = list(filter(lambda field: field["field_name"] == value, self.metadata))[0]["select_choices_or_calculations"]
+                    choices = { choice.split(", ")[0]: choice.split(", ")[1] for choice in choice_string.split(" | ") }
+                    multi_select_values = [choices[choice] for choice in choices if record[f"{value}___{choice}"] == "1"]
+                    if multi_select_values:
+                        values[value] = ",".join(multi_select_values)
+                        empty = False
+                    else:
+                        values[value] = None
+            if not empty:
+                try:
+                    self.update(table=test_name, fields=values, where={ "CommentID": values["CommentID"]})
+                    updated_inst += 1
+                    if self.verbose:
+                        print(f"Updated {test_name}, {subject}")
+                except Exception:
+                    self.log_error(method="transfer_data", details=f"update {test_name}, {subject}")
+                    num_error += 1
+            if record[f"{test_name}_complete"] == "2":
+                flag_values = {
+                    "Data_entry": "Complete",
+                    "Administration": "All"
+                }
+                try:
+                    self.update(table="flag", fields=flag_values, where={ "CommentID": values["CommentID"]})
+                    updated_flag += 1
+                    if self.verbose:
+                        print(f"Updated flag: {test_name}, {subject}")
+                except Exception:
+                    self.log_error(method="transfer_data", details=f"update flag: {test_name}, {subject}")
+                    num_error += 1
+        return updated_inst, updated_flag, num_error
 
     def populate_candidate_parameters(self, **kwargs):
         # add to parameter_type_category and parameter_type_category_rel
