@@ -512,7 +512,7 @@ class RedcapToLoris:
 
             updated_inst, updated_flag, num_error = self.update_data(handle_subject_ids=handle_subject_ids, record=record, multi_selects=multi_selects, visit_label=visit_label, updated_inst=updated_inst, updated_flag=updated_flag, num_error=num_error)
 
-        print(f"{num_flag} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.")
+        print(f"{int(num_flag/2)} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.")
 
     def update_data(self, **kwargs):
         handle_subject_ids = kwargs.get("handle_subject_ids", lambda x: x)
@@ -666,3 +666,45 @@ class RedcapToLoris:
 
         print(f"{num_parameters} candidate parameters in parameter_candidate. {num_new} added. {num_error} errors.")
 
+    def populate_flag_table(self, **kwargs):
+        visits = kwargs.get("visits")
+
+        num_flag = self.query(table="flag", fields=["count(*)"])[0]["count(*)"]
+        num_added = 0
+        num_error = 0
+
+        for visit in visits:
+            query = f"SELECT DISTINCT s.CandID, c.PSCID, s.ID AS sessionID, s.subprojectID, tn.ID AS testID, tb.Test_name from session s LEFT JOIN candidate c USING (CandID) RIGHT JOIN test_battery tb USING (Visit_label) LEFT JOIN test_names tn USING (Test_name) WHERE s.Active='Y' AND c.Active='Y' AND tb.Active='Y' AND s.visit_label='{visit['label']}'"
+            self.cursor.execute(query)
+            result = [row for row in self.cursor]
+            for row in result:
+                test_name = row['Test_name']
+                partial_comment_id = f"{row['CandID']}{row['PSCID']}{row['sessionID']}{row['subprojectID']}{row['testID']}"
+                comment_id_list = self.query(table=test_name, fields=["CommentID"], where_like={ "CommentID": f"{partial_comment_id[1]}%" })
+                if len(comment_id_list) == 0:
+                    timestamp = int(datetime.datetime.utcnow().timestamp())
+                    comment_id = f"{partial_comment_id}{timestamp}"
+                    try:
+                        flag_values = {
+                            "SessionID": row["sessionID"],
+                            "Test_name": test_name,
+                            "CommentID": comment_id,
+                            "UserID": 'redcapTransfer'
+                        }
+                        self.insert("flag", flag_values)
+                        flag_values["CommentID"] = f"DDE_{comment_id}"
+                        self.insert("flag", flag_values)
+                        if self.verbose:
+                            print(f"Inserted into flag: {comment_id}")
+                        inst_values = {
+                            "CommentID": comment_id
+                        }
+                        self.insert(test_name, inst_values)
+                        if self.verbose:
+                            print(f"Inserted new row into {test_name}")
+                        num_added += 1
+                    except:
+                        self.log_error(method="populate_flag_table", details=comment_id)
+                        num_error += 1
+
+        print(f"{int(num_flag/2) + num_added} entries in flag. {num_added} added. {num_error} errors.")
