@@ -57,12 +57,12 @@ File that holds the credentials for connecting to the REDCap API and the LORIS d
 example config.py:
 
     config = {
-        "user": "\<loris database user\>",
-        "password": "\<loris database user's password\>",
-        "host": "\<ip address for loris database server\>",
-        "database": "\<loris database name\>"
+        "user": "<loris database user>",
+        "password": "<loris database user's password>",
+        "host": "<ip address for loris database server>",
+        "database": "<loris database name>"
     }
     
-    token = "\<token for the redcap API\>"
+    token = "<token for the redcap API>"
     
-    api_route = "\<URL for the REDCap instance's API\>"
+    api_route = "<URL for the REDCap instance's API>"
