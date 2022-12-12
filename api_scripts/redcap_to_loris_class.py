@@ -23,18 +23,61 @@ class RedcapToLoris:
 
 
     def __del__(self):
+        """ 
+        Upon deleting the RedcapToLoris instance close the connection and the cursor.
+        """
         self.cnx.close()
         self.cursor.close()
 
     def commit(self):
+        """ 
+        Commit changes to the database 
+        """
         self.cnx.commit()
 
     def insert(self, table, dict):
+        """
+        Insert a row into 'table'.
+
+        Parameters
+        ----------
+        table: string
+            the name of the table to insert into
+        dict: dictionary
+            the data to insert. Dictionary keys are the SQL column names and dictionary values are the SQL values.
+        
+        Returns
+        --------
+        None
+        """
         placeholder = ", ".join(["%s"] * len(dict))
         stmt = "INSERT INTO `{table}` ({columns}) VALUES ({values});".format(table=table, columns=",".join(dict.keys()), values=placeholder)
         self.cursor.execute(stmt, list(dict.values()))
 
     def query(self, **kwargs):
+        """
+        Queries a table in the database.
+
+        Key Word Agruments
+        ----------
+        table: string
+            REQUIRED
+            the name of the table to query
+        fields: list of strings
+            REQUIRED
+            the fields to query for
+        where: dictionary
+            OPTIONAL
+            the where clause for the query. Dictionary keys are the SQL columns and dictionary values are the SQL values to match.
+        where_like: dictionary
+            OPTIONAL
+            the where clause for the query for fields that use the LIKE key word. Dictionary keys are the SQL columns and dictionary values are the SQL values to match.
+
+        Returns
+        --------
+        list 
+            each row returned by the query is an item in the list.
+        """
         table = kwargs.get("table")
         fields = kwargs.get("fields")
         where = kwargs.get("where")
@@ -61,6 +104,25 @@ class RedcapToLoris:
         return [row for row in self.cursor]
 
     def update(self, **kwargs):
+        """
+        Updates rows in the database.
+
+        Key Word Arguments
+        ----------
+        table: string
+            REQUIRED
+            the name of the table to update
+        fields: dictionary
+            REQUIRED
+            the fields to update, dictionary keys are SQL columns and dictionary values are SQL values
+        where: dictionary
+            REQUIRED
+            the where clause for the SQL update. Dictionary keys are SQL columns and dictionary values are SQL values to match.
+
+        Returns
+        ----------
+        None
+        """
         table = kwargs.get("table")
         fields = kwargs.get("fields")
         where = kwargs.get("where")
@@ -70,6 +132,23 @@ class RedcapToLoris:
 
 
     def log_error(self, **kwargs):
+        """
+        General purpose error logging.
+        Creates an entry in the error log with information about the error.
+        Prints to stdout if class instance is set to verbose.
+
+        Key Word Arguments
+        ----------
+        method: string
+            the method where the error arrose
+        details: string
+            further details on the error
+            recommended to use an identifier that distinguishes this from other iterations of a loop such as candidate id etc.
+
+        Returns
+        ----------
+        None
+        """
         method = kwargs.get("method")
         details = kwargs.get("details")
 
@@ -81,6 +160,19 @@ class RedcapToLoris:
     ## api calls
 
     def get_data(self, data):
+        """
+        General api call function.
+        Generates a json file of the returned data if set to verbose.
+
+        Parameters
+        ----------
+        data: dictionary
+            the dictionary used in the API get. See API documentation available when logged into a REDCap instance for examples.
+        
+        Returns
+        ----------
+        result: type determined by returnFormat in the data parameter
+        """
         name = data['content']
         r = requests.post(self.api_route,data=data)
         result = r.json()
@@ -93,6 +185,10 @@ class RedcapToLoris:
         return result
 
     def get_records(self):
+        '''
+        Gets all records from the REDCap API. See get_data
+        Sets self.records to the returned value of get_data
+        '''
         data = {
             'token': self.token,
             'content': 'record',
@@ -111,6 +207,10 @@ class RedcapToLoris:
 
     
     def get_metadata(self):
+        '''
+        Gets REDCap metadata from the API. See get_data
+        Sets self.metadata to the returned value of get_data
+        '''
         data = {
             'token': f'{self.token}',
             'content': 'metadata',
@@ -120,6 +220,10 @@ class RedcapToLoris:
         self.metadata = self.get_data(data)
 
     def get_form_event_mapping(self):
+        '''
+        Gets form event mappings from the REDCap API. See get_data
+        Sets self.form_event_mapping to the returned value of get_data
+        '''
         data = {
             'token': self.token,
             'content': 'formEventMapping',
@@ -129,6 +233,15 @@ class RedcapToLoris:
         self.form_event_mapping = self.get_data(data)
 
     def get_report(self, report_id):
+        '''
+        Gets a report from the REDCap API. See get_data
+        Reports are constructed in the REDCap instance. Data returned will vary depending on what report is created.
+        Adds a key-values pair to self.reports where key is the report id and value is the data returned by get_data
+        Parameters
+        ----------
+        report_id: int
+            the id of the report to get from the API
+        '''
         data = {
             'token': self.token,
             'content': 'report',
@@ -143,6 +256,10 @@ class RedcapToLoris:
         self.reports[report_id] = self.get_data(data)
 
     def get_repeating_forms_events(self):
+        '''
+        Gets a the repeating forms metadata from the REDCap API
+        Sets self.repeating_forms_events to the returned value of get_data
+        '''
         data = {
             'token': self.token,
             'content': 'repeatingFormsEvents',
@@ -154,6 +271,11 @@ class RedcapToLoris:
     ## Creating Candidates
 
     def get_existing_candidates(self):
+        '''
+        Queries the LORIS database for all existing candidates' PSCIDs and CandIDs
+        Sets self.cand_ids equal to a list of CandIDs
+        Sets self.pscids equal to a list of PSCIDs
+        '''
         candidates = self.query(table='candidate', fields=['PSCID', 'CandID'])
         self.cand_ids = [candidate["CandID"] for candidate in candidates]
         self.pscids = [candidate["PSCID"] for candidate in candidates]
