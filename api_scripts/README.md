@@ -11,22 +11,22 @@ Used to handle data that the parent fills out about the child's siblings. As the
 
 Depricated. (almost) Everything that this does is done by redcap_to_loris.py.
 This is messier and less scalable.
-- Only use this for the instrument generation functions as these have not been implemented in the new class.
+- Only use this for the instrument generation methods as these have not been implemented in the new class.
 
 ## LORIS_php_instrument_template.html.jinja2
 
 This file was originally written by a former E-Lab data manager and adapted for use here.
-- Used by the create_instrument_php function in loris_class.py
+- Used by the create_instrument_php method in loris_class.py
 
 ## redcap_to_loris_class.py
 
-This file holds the class that defines the functions used to transfer data.
+This file holds the class that defines the methods used to transfer data.
 
 ## run.py
 
 This file is the script that is run to transfer data from REDCap to LORIS.
 - Creates an instance of the RedcapToLoris class defined in redcap_to_loris_class.py
-- Defines paramaters needed by the functions
+- Defines paramaters needed by the methods
 
 When run it should have an output similar to the following:
 
@@ -46,8 +46,8 @@ When run it should have an output similar to the following:
 
 ## setup_project.py
 
-Depricated. Like run.py but using the old depricated loris_class.py functions.
-Can use some of the code to call instrument generation functions.
+Depricated. Like run.py but using the old depricated loris_class.py methods.
+Can use some of the code to call instrument generation methods.
 
 ## config.py
 

@@ -9,6 +9,36 @@ from config import config, token, api_route
 from random import randint
 
 class RedcapToLoris:
+    """
+    Class that pulls data from the REDCap API and places it in the LORIS MySQL databse.
+
+    Attributes
+    ----------
+    verbose: boolean
+        whether to output a high number of print statments
+    cnx: mysql connector connection object
+        set by init using information from config.py
+    cursor: mysql connector cursor object
+        set by init, always a non-buffered cursor that returns a dictionary. See MySQL connector's documentation for more information.
+    error_log: string
+        path to the error log. Set by init
+    api_route: string
+        set by init using information from config.py
+    reports: dictionary
+        initialized by init. Populated by get_report
+    records: list of dictionaries
+        the data for all records in REDCap. Set by get_records
+    metadata: list of dictionaries
+        the REDCap instance's metadata. Set by get_metadata
+    form_event_mapping: list of dictionaries
+        the REDCap instance's mappings between forms and events. Set by get_form_event_mapping
+    repeating_forms_events: list of dictionaries
+        the REDCap instance's description of repeat instruments and the events they belong to
+    cand_ids: list of strings
+        list of all CandIDs from LORIS's MySQL database. Used to check if a candidate exists in LORIS
+    pscids: list of strings
+        list of all PSCIDs from LORIS's MySQL database. Used to check if a candidate exsists in LORIS
+    """
 
     ## setup database connection, basic operations
     def __init__(self, **kwargs):
@@ -281,18 +311,48 @@ class RedcapToLoris:
         self.pscids = [candidate["PSCID"] for candidate in candidates]
 
     def generate_offset(self):
+        '''
+        Generates a random number in a specific range.
+
+        Returns
+        ----------
+        offset: int
+            Random integer in [-30, -10) or (10, 30]
+        '''
         offset = 0
         while offset <= 10 and offset >= -10:
             offset = randint(-30,30)
         return offset
 
     def jitter_dob(self, dob):
+        '''
+        Obscures dates.
+
+        Parameters
+        ----------
+        dob: string
+            datetime string in format YYYY-MM-DD
+        
+        Returns
+        ----------
+        datetime string
+            an obscured date offset by the amount of time determined in generate_offset
+        '''
         offset = datetime.timedelta(days = self.generate_offset())
         date = datetime.datetime.strptime(dob, '%Y-%m-%d')
         jittered_dob = date + offset
         return jittered_dob.strftime('%Y-%m-%d')
 
     def generate_cand_id(self):
+        '''
+        Randomly generates a CandID for use in LORIS's MySQL database.
+        CandID will be unique across the LORIS instance
+
+        Returns
+        ----------
+        cand_id: int
+            a 6 digit integer
+        '''
         while True:
             cand_id = randint(100000, 999999)
             if cand_id not in self.cand_ids:
@@ -301,6 +361,31 @@ class RedcapToLoris:
         return cand_id
 
     def get_cand_info(self, **kwargs):
+        """
+        Constructs a dictionary with the values required to create an entry in the candidate table
+
+        Key Word Arguments
+        ----------
+        record: dictionary
+            a single record from self.records
+        dob_field: string
+            the label of the field to be used to find the candidat's DoB in the record
+        sex_field: string
+            the label of the field to be used to find the candidate's sex in the record
+        registration_center_field: string
+            the label of the field to be used to find the candidat's study center
+        registration_date_field: string
+            the label of the field to be used to find the candidate's date of registration
+        registration_project_id: int
+            the registration project id in LORIS
+        registration_center_lookup: dictionary
+            dictionary keys are the integer id for the study center in REDCap, dictionary values are the integer id for the study center in LORIS
+
+        Returns
+        ----------
+        candidate_info: dictionary
+            a dictionary with the values required to create an entry in the candidate table
+        """
         record = kwargs.get("record")
         dob_field = kwargs.get("dob_field")
         sex_field = kwargs.get("sex_field")
