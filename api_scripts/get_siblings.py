@@ -31,7 +31,10 @@ def get_subproject_function(subject):
         print("Invalid Subject ID for get_subproject_function")
         return -1
 
-# loris.populate_session_table_override(visits=visits, get_subproject_function=get_subproject_function)
+def handle_subject_ids(subject):
+    return subject[:12]
+
+loris.populate_session_table_override(visits=visits, get_subproject_function=get_subproject_function, handle_subject_ids=handle_subject_ids)
 
 tests = {
     "srs2_schoolage": "srs_school_age_dob",
@@ -44,9 +47,6 @@ tests = {
     'cbcl_ages_6': "cbcl_dob",
     'conners_3': "con3_p_dob"
 }
-
-def handle_subject_ids(subject):
-    return subject[:12]
 
 keys = list(loris.records[0].keys())
 multi_selects = []
@@ -70,7 +70,7 @@ for record in loris.records:
                     if record[visit["override"]] == sibling_record[dob_field] and sibling_record[dob_field] != "":
                         updated_inst, updated_flag, num_error = loris.update_data(handle_subject_ids=handle_subject_ids, record=sibling_record, multi_selects=multi_selects, visit_label=visit["label"], updated_inst=updated_inst, updated_flag=updated_flag, num_error=num_error)
 
-print(f"{num_flag} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.")
+print(f"{int(num_flag/2)} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.")
 
 loris.commit()
 

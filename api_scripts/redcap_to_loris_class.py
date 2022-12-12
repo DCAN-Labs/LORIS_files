@@ -413,6 +413,7 @@ class RedcapToLoris:
         visits = kwargs.get("visits")
         get_subproject_function = kwargs.get("get_subproject_function")
         expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
+        handle_subject_ids = kwargs.get("handle_subject_ids")
 
         num_old = self.query(table="session", fields=["count(*)"])[0]["count(*)"]
         num_new = 0
@@ -438,7 +439,7 @@ class RedcapToLoris:
                             if skip:
                                 continue
                                     
-                        subject = record['record_id']
+                        subject = handle_subject_ids(record['record_id'])
                         result = self.query(table="candidate", fields=["CandID", "RegistrationCenterID", "RegistrationProjectID"], where={"PSCID":subject})
                         try:
                             cand_id = result[0]["CandID"]
@@ -572,19 +573,19 @@ class RedcapToLoris:
                 except Exception:
                     self.log_error(method="transfer_data", details=f"update {test_name}, {subject}")
                     num_error += 1
-            if record[f"{test_name}_complete"] == "2":
-                flag_values = {
-                    "Data_entry": "Complete",
-                    "Administration": "All"
-                }
-                try:
-                    self.update(table="flag", fields=flag_values, where={ "CommentID": values["CommentID"]})
-                    updated_flag += 1
-                    if self.verbose:
-                        print(f"Updated flag: {test_name}, {subject}")
-                except Exception:
-                    self.log_error(method="transfer_data", details=f"update flag: {test_name}, {subject}")
-                    num_error += 1
+                if record[f"{test_name}_complete"] == "2":
+                    flag_values = {
+                        "Data_entry": "Complete",
+                        "Administration": "All"
+                    }
+                    try:
+                        self.update(table="flag", fields=flag_values, where={ "CommentID": values["CommentID"]})
+                        updated_flag += 1
+                        if self.verbose:
+                            print(f"Updated flag: {test_name}, {subject}")
+                    except Exception:
+                        self.log_error(method="transfer_data", details=f"update flag: {test_name}, {subject}")
+                        num_error += 1
         return updated_inst, updated_flag, num_error
 
     def populate_candidate_parameters(self, **kwargs):
