@@ -384,7 +384,7 @@ class RedcapToLoris:
         Returns
         ----------
         candidate_info: dictionary
-            a dictionary with the values required to create an entry in the candidate table
+            a dictionary with the values required to insert an entry in the candidate table
         """
         record = kwargs.get("record")
         dob_field = kwargs.get("dob_field")
@@ -417,6 +417,28 @@ class RedcapToLoris:
         return candidate_info
 
     def populate_candidate_table(self, **kwargs):
+        """
+        Inserts new candidates into the candidate table in LORIS's MySQL database.
+
+        Key Word Arguments
+        ----------
+        dob_field: string
+            the label of the field to be used to find the candidat's DoB in the record
+        sex_field: string
+            the label of the field to be used to find the candidate's sex in the record
+        registration_center_field: string
+            the label of the field to be used to find the candidat's study center
+        registration_date_field: string
+            the label of the field to be used to find the candidate's date of registration
+        registration_project_id: int
+            the registration project id in LORIS
+        registration_center_lookup: dictionary
+            dictionary keys are the integer id for the study center in REDCap, dictionary values are the integer id for the study center in LORIS
+
+        Returns
+        ----------
+        None
+        """
         dob_field = kwargs.get("dob_field")
         sex_field = kwargs.get("sex_field")
         registration_center_field = kwargs.get("registration_center_field")
@@ -455,6 +477,20 @@ class RedcapToLoris:
     ## set up project in database
 
     def populate_visit_table(self, **kwargs):
+        """
+        Adds new visits to the LORIS MySQL database. Used for initial setup.
+        Finds visits that have not yet been added to LORIS and adds them. Does not alter existing visits.
+
+        Key Word Arguments
+        ----------
+        visits: dictionary
+            a dictionary describing the visit metadata
+            the visit dictionary is used by multiple methods, this method only uses the label attribute
+        
+        Returns
+        ----------
+        None
+        """
         visits = kwargs.get("visits")
 
         num_old = self.query(table="visit", fields=["count(*)"])[0]["count(*)"]
@@ -478,6 +514,23 @@ class RedcapToLoris:
         print(f"{num_old + num_new} visits in visit. {num_old} unchanged, {num_new} added. {num_error} errors.")
 
     def populate_test_battery_table(self, **kwargs):
+        """
+        Inserts tests into the test_battery table in LORIS's MySQL database. Used for initial setup.
+        Finds tests that have not yet been inserted into LORIS. Will not update existing visits.
+
+        Key Word Arguments
+        ----------
+        visits: dictionary
+            a dictionary describing the visit metadata
+            the visit dictionary is used by multiple methods, this method uses the label and match attributes
+        exclude: list of strings
+            a list of REDCap forms that will not be transfered to LORIS
+
+        Returns
+        ----------
+        None
+
+        """
         visits = kwargs.get("visits")
         exclude = kwargs.get("exclude")
         expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
@@ -530,9 +583,32 @@ class RedcapToLoris:
         print(f"{old_num + new_num} tests in test_battery. {old_num} unchanged, {new_num} added. {num_error} errors.")
 
     def populate_session_table(self, **kwargs):
+        """
+        Inserts sessions into the LORIS MySQL database.
+        Each candidate has a new session in LORIS for every visit, this will insert new rows for the candidate's new visits but not alter old rows.
+        Identifies whcih visit to label it as by using the 'match' attribute of visits kwarg
+
+        Key Word Arguments
+        ----------
+        visits: dictionary
+            a dictionary describing the visit metadata
+            the visit dictionary is used by multiple methods, this method uses the label, match, scan attributes
+        get_subproject_function: function
+            a function that takes a record_id and returns a subproject_id.
+        report_id: integer
+            the id for the report in REDCap.
+            this function expects a report that generates a row for each form containing its <form>_complete and <form>_timestamp field
+        expected_repeat_instruments: dictionary
+            instruments that repeat and should be different visits for each repeat instance. repeat instruments not in this dictionary will be combined with other instruments for that visit when determining visit date.
+            keys are instrument names and values are a dictionary with instance number: visit_label pairs.
+        
+        Returns
+        ----------
+        None
+        """
         visits = kwargs.get("visits")
         get_subproject_function = kwargs.get("get_subproject_function")
-        report_id = kwargs.get("report_id") ## this function expects a report that generates a row for each form containing its <form>_complete and <form>_timestamp field
+        report_id = kwargs.get("report_id")
         expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
 
         subject_visits = {}
@@ -617,10 +693,34 @@ class RedcapToLoris:
         print(f"{num_old + num_new} sessions in session. {num_old} unchanged, {num_new} added. {num_error} errors.")
 
     def populate_session_table_override(self, **kwargs):
+        """
+        Inserts sessions into the LORIS MySQL database.
+        Differs from populate_session_table by allowing the user to start LORIS visits from instruments that are otherwise combined in a single REDCap visit
+        Identifies whcih visit to label it as by looking for the field defined by 'override' in a record
+
+        Key Word Agruments
+        ----------
+        visits: dictionary
+            a dictionary describing the visit metadata
+            the visit dictionary is used by multiple methods, this method uses the label, date_field, override and scan attributes
+        get_subproject_function: function
+            a function that takes a record_id and returns a subproject_id.
+        expected_repeat_instruments: dictionary
+            instruments that repeat and should be different visits for each repeat instance. repeat instruments not in this dictionary will be combined with other instruments for that visit when determining visit date.
+            keys are instrument names and values are a dictionary with instance number: visit_label pairs.
+        handle_subject_ids: function
+            takes a record_id an returns a subject_id.
+            Used to handle REDCap instances where multiple candidate records may correspond to the same candidate
+            if not given defaults to returning the record_id unchanged.
+        
+        Returns
+        ----------
+        None
+        """
         visits = kwargs.get("visits")
         get_subproject_function = kwargs.get("get_subproject_function")
         expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
-        handle_subject_ids = kwargs.get("handle_subject_ids")
+        handle_subject_ids = kwargs.get("handle_subject_ids", lambda x: x)
 
         num_old = self.query(table="session", fields=["count(*)"])[0]["count(*)"]
         num_new = 0
@@ -687,6 +787,26 @@ class RedcapToLoris:
         print(f"{num_old + num_new} sessions in session. {num_old} unchanged, {num_new} added. {num_error} errors.")
 
     def transfer_data(self, **kwargs):
+        """
+        Loops through REDCap records and identifies where to insert records in LORIS's MySQL database.
+
+        Key Word Arguments
+        ----------
+        visits: dictionary
+            a dictionary describing the visit metadata
+            the visit dictionary is used by multiple methods, this method uses the label and match attributes
+        expected_repeat_instruments: dictionary
+            instruments that repeat and should be different visits for each repeat instance. repeat instruments not in this dictionary will be combined with other instruments for that visit when determining visit date.
+            keys are instrument names and values are a dictionary with instance number: visit_label pairs.
+        handle_subject_ids: function
+            takes a record_id an returns a subject_id.
+            Used to handle REDCap instances where multiple candidate records may correspond to the same candidate
+            if not given defaults to returning the record_id unchanged.
+
+        Returns
+        ----------
+        None
+        """
         visits = kwargs.get("visits")
         expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
         handle_subject_ids = kwargs.get("handle_subject_ids", lambda x: x)
@@ -723,6 +843,37 @@ class RedcapToLoris:
         print(f"{int(num_flag/2)} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.")
 
     def update_data(self, **kwargs):
+        """
+        Updates an entry in the LORIS MySQL databse with data from REDCap. Called by transfer_data to do the actual data transfer.
+
+        Key Word Arguments
+        ----------
+        handle_subject_ids: function
+            takes a record_id an returns a subject_id.
+            Used to handle REDCap instances where multiple candidate records may correspond to the same candidate
+            if not given defaults to returning the record_id unchanged.
+        record: dictionary
+            a single REDCap record from self.records
+        multi_selects: list of strings
+            fields that are multi-select in REDCap and need to be combined to be inserted into LORIS
+        visit_label: string
+            the name of the visit to be updated
+        updated_inst: int
+            current number of successful instrument table updates performed, to be incremented upon success.
+        updated_flag: int
+            current number of successful flag table updates performed, to be incremented upon success.
+        num_error: int
+            current number of unsuccessful update attempts, to be incremented upon failure.
+
+        Returns
+        ----------
+        updated_inst
+            described above
+        updated_flag
+            described above
+        num_error
+            described above
+        """
         handle_subject_ids = kwargs.get("handle_subject_ids", lambda x: x)
         record = kwargs.get("record")
         multi_selects = kwargs.get("multi_selects")
@@ -796,6 +947,18 @@ class RedcapToLoris:
         return updated_inst, updated_flag, num_error
 
     def populate_candidate_parameters(self, **kwargs):
+        """
+        Adds data to the multiple tables involved in the Candidate Information page in LORIS.
+
+        Key Word Arguments
+        ----------
+        candidate_parameters: dictionary
+            information on what parameters to update
+
+        Returns
+        ----------
+        None
+        """
         # add to parameter_type_category and parameter_type_category_rel
         candidate_parameters = kwargs.get("candidate_parameters")
 
@@ -875,6 +1038,19 @@ class RedcapToLoris:
         print(f"{num_parameters} candidate parameters in parameter_candidate. {num_new} added. {num_error} errors.")
 
     def populate_flag_table(self, **kwargs):
+        """
+        Inserts a new row into flag and the corresponding instrument table in LORIS. Mimics the standard LORIS script assign_missing_instruments.php
+
+        Key Word Arguments
+        ----------
+        visits: dictionary
+            a dictionary describing the visit metadata
+            the visit dictionary is used by multiple methods, this method only uses the label attribute
+
+        Returns
+        ----------
+        None
+        """
         visits = kwargs.get("visits")
 
         num_flag = self.query(table="flag", fields=["count(*)"])[0]["count(*)"]
