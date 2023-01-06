@@ -4,6 +4,7 @@ import requests
 import json
 import traceback
 import functools
+import pandas as pd
 from jinja2 import Template
 from config import config, token, api_route
 from random import randint
@@ -1092,3 +1093,26 @@ class RedcapToLoris:
                         num_error += 1
 
         print(f"{int(num_flag/2) + num_added} entries in flag. {num_added} added. {num_error} errors.")
+
+    ## PHI protection
+    def generate_metadata_df(self):
+        metadata_df = pd.read_json(json.dumps(self.metadata))
+        return metadata_df
+
+    def generate_audit_csv(self, **kwargs):
+        exclude = kwargs.get("exclude")
+
+        metadata_df = self.generate_metadata_df()
+
+        metadata_df.drop(metadata_df.loc[metadata_df['form_name'].isin(exclude)].index, inplace=True)
+        metadata_df.drop(metadata_df.loc[metadata_df['field_type']=='descriptive'].index, inplace=True)
+        metadata_df.drop(metadata_df.loc[metadata_df['field_type']=='notes'].index, inplace=True)
+
+        # 'radio': 'enum',
+        # 'text': 'varchar(255)',
+        # 'descriptive':'',
+        # 'dropdown':'enum',
+        # 'notes':'text',
+        # 'calc':'int',
+        # 'yesno':'enum',
+        # 'checkbox':'varchar(255)'
