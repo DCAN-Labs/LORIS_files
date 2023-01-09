@@ -236,6 +236,33 @@ class RedcapToLoris:
         }
         self.records = self.get_data(data)
 
+    def get_audited_records(self):
+        '''
+        Gets all records from the REDCap API. See get_data
+        Only gets fields that are set as included in the audit csv, see generate_audit_csv
+        Sets self.records to the returned value of get_data
+        '''
+        include = self.ingest_audit_csv()
+
+        data = {
+            'token': self.token,
+            'content': 'record',
+            'action': 'export',
+            'format': 'json',
+            'type': 'flat',
+            'csvDelimiter': '',
+            'rawOrLabel': 'raw',
+            'rawOrLabelHeaders': 'raw',
+            'exportCheckboxLabel': 'false',
+            'exportSurveyFields': 'false',
+            'exportDataAccessGroups': 'false',
+            'returnFormat': 'json'
+        }
+
+        for index, value in enumerate(include):
+            data[f"fields[{index}]"] = value
+        
+        self.records = self.get_data(data)
     
     def get_metadata(self):
         '''
@@ -1096,10 +1123,27 @@ class RedcapToLoris:
 
     ## PHI protection
     def generate_metadata_df(self):
+        """
+        Gets the data dictionary from the API and puts it in a dataframe
+
+        Returns
+        ----------
+        metadata_df: dataframe
+            a dataframe containing the REDCap project's data dictionary
+        """
         metadata_df = pd.read_json(json.dumps(self.metadata))
         return metadata_df
 
     def generate_audit_csv(self, **kwargs):
+        """
+        Generates a csv file for use in redacting fields that may contain PHI
+        Outputs 'to_audit.csv'
+
+        Key Word Arguments
+        ----------
+        exclude: list of strings
+            a list of instruments to exclude from the data transfer
+        """
         exclude = kwargs.get("exclude")
 
         metadata_df = self.generate_metadata_df()
@@ -1108,11 +1152,22 @@ class RedcapToLoris:
         metadata_df.drop(metadata_df.loc[metadata_df['field_type']=='descriptive'].index, inplace=True)
         metadata_df.drop(metadata_df.loc[metadata_df['field_type']=='notes'].index, inplace=True)
 
-        # 'radio': 'enum',
-        # 'text': 'varchar(255)',
-        # 'descriptive':'',
-        # 'dropdown':'enum',
-        # 'notes':'text',
-        # 'calc':'int',
-        # 'yesno':'enum',
-        # 'checkbox':'varchar(255)'
+        audit_df = metadata_df[["field_name", "form_name", "field_type", "field_label", "text_validation_type_or_show_slider_number"]].copy()
+        audit_df["include"] = 0
+
+        audit_df.to_csv("to_audit.csv", index=False)
+
+        print("Please review the file 'to_audit.csv'.\nSet the value in the column 'include' to 1 to include a field.\nOnce finished save as 'audit_csv'")
+
+    def ingest_audit_csv(self):
+        """
+        Reads audit.csv and generates a list of field names to include in the records API call.
+
+        Returns
+        ----------
+        included_df.to_list(): list of strings
+            a list of field names to include in the records API call
+        """
+        audited_df = pd.read_csv("audit.csv")
+        included_df = audited_df.loc[(audited_df["include"] == 1)]["field_name"]
+        return included_df.to_list()
