@@ -183,7 +183,7 @@ class RedcapToLoris:
         details = kwargs.get("details")
 
         if self.verbose:
-            print(f"Error executing {method}: {details}")
+            print(f"Error executing {method}: {details}", flush=True)
         with open(self.error_log, "a") as file:
             file.write(f"--------------------------\n{datetime.datetime.now()} | Error in {method}: {details}\n{traceback.format_exc()}\n")
 
@@ -206,7 +206,7 @@ class RedcapToLoris:
         name = data['content']
         r = requests.post(self.api_route,data=data)
         result = r.json()
-        print(f'Get {name} HTTP Status: ' + str(r.status_code))
+        print(f'Get {name} HTTP Status: ' + str(r.status_code), flush=True)
 
         if self.verbose:
             with open(f'outputs/json/{name}.json', 'w+') as file:
@@ -469,7 +469,7 @@ class RedcapToLoris:
                 except Exception:
                     self.log_error(method='populate_candidate_table', details=record["record_id"])
                     num_error += 1
-        print(f"{num_added + num_old} candidates in LORIS. {num_old} unchanged, {num_added} added. {num_error} errors.")
+        print(f"{num_added + num_old} candidates in LORIS. {num_old} unchanged, {num_added} added. {num_error} errors.", flush=True)
 
     ## make instruments
 
@@ -511,7 +511,7 @@ class RedcapToLoris:
                 except Exception:
                     self.log_error(method="populate_visit_table", details=visit["label"])
                     num_error += 1
-        print(f"{num_old + num_new} visits in visit. {num_old} unchanged, {num_new} added. {num_error} errors.")
+        print(f"{num_old + num_new} visits in visit. {num_old} unchanged, {num_new} added. {num_error} errors.", flush=True)
 
     def populate_test_battery_table(self, **kwargs):
         """
@@ -580,7 +580,7 @@ class RedcapToLoris:
                         except Exception:
                             self.log_error(method="populate_test_battery_table", details=form["form"])
                             num_error += 1
-        print(f"{old_num + new_num} tests in test_battery. {old_num} unchanged, {new_num} added. {num_error} errors.")
+        print(f"{old_num + new_num} tests in test_battery. {old_num} unchanged, {new_num} added. {num_error} errors.", flush=True)
 
     def populate_session_table(self, **kwargs):
         """
@@ -690,7 +690,7 @@ class RedcapToLoris:
                     except Exception:
                         self.log_error(method="populate_session_table", details=f"{subject}, {visit}")
                         num_error += 1
-        print(f"{num_old + num_new} sessions in session. {num_old} unchanged, {num_new} added. {num_error} errors.")
+        print(f"{num_old + num_new} sessions in session. {num_old} unchanged, {num_new} added. {num_error} errors.", flush=True)
 
     def populate_session_table_override(self, **kwargs):
         """
@@ -784,7 +784,7 @@ class RedcapToLoris:
                             except Exception:
                                 self.log_error(method="populate_session_table_override", details=f"{subject}, {visit}")
                                 num_error += 1
-        print(f"{num_old + num_new} sessions in session. {num_old} unchanged, {num_new} added. {num_error} errors.")
+        print(f"{num_old + num_new} sessions in session. {num_old} unchanged, {num_new} added. {num_error} errors.", flush=True)
 
     def transfer_data(self, **kwargs):
         """
@@ -825,22 +825,25 @@ class RedcapToLoris:
                     multi_selects.append(split_key)
 
         for record in self.records:
+            try:
+                for visit in visits:
+                    if "match" in visit:
+                        if visit["match"] in record["redcap_event_name"]:
+                            visit_label = visit["label"]
+                            break
 
-            for visit in visits:
-                if "match" in visit:
-                    if visit["match"] in record["redcap_event_name"]:
-                        visit_label = visit["label"]
-                        break
-
-            if record["redcap_repeat_instrument"]:
-                if record["redcap_repeat_instrument"] in expected_repeat_instruments:
-                    visit_label = expected_repeat_instruments[record["redcap_repeat_instrument"]][record["redcap_repeat_instance"]]
-                else:
-                    break
+                if record["redcap_repeat_instrument"]:
+                    if record["redcap_repeat_instrument"] in expected_repeat_instruments:
+                        visit_label = expected_repeat_instruments[record["redcap_repeat_instrument"]][record["redcap_repeat_instance"]]
+                    else:
+                        continue
+            except:
+                self.log_error(method="transfer_data", details=f"Visit lookup for {record['record_id']}")
+                num_error += 1
 
             updated_inst, updated_flag, num_error = self.update_data(handle_subject_ids=handle_subject_ids, record=record, multi_selects=multi_selects, visit_label=visit_label, updated_inst=updated_inst, updated_flag=updated_flag, num_error=num_error)
 
-        print(f"{int(num_flag/2)} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.")
+        print(f"{int(num_flag/2)} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.", flush=True)
 
     def update_data(self, **kwargs):
         """
@@ -1035,7 +1038,7 @@ class RedcapToLoris:
                             self.log_error(method="populate_candidate_parameters", details=f"insert parameter_candidate: {parameter}, {subject}")
                             num_error += 1
 
-        print(f"{num_parameters} candidate parameters in parameter_candidate. {num_new} added. {num_error} errors.")
+        print(f"{num_parameters} candidate parameters in parameter_candidate. {num_new} added. {num_error} errors.", flush=True)
 
     def populate_flag_table(self, **kwargs):
         """
@@ -1064,7 +1067,7 @@ class RedcapToLoris:
             for row in result:
                 test_name = row['Test_name']
                 partial_comment_id = f"{row['CandID']}{row['PSCID']}{row['sessionID']}{row['subprojectID']}{row['testID']}"
-                comment_id_list = self.query(table=test_name, fields=["CommentID"], where_like={ "CommentID": f"{partial_comment_id[1]}%" })
+                comment_id_list = self.query(table=test_name, fields=["CommentID"], where_like={ "CommentID": f"{partial_comment_id}%" })
                 if len(comment_id_list) == 0:
                     timestamp = int(datetime.datetime.utcnow().timestamp())
                     comment_id = f"{partial_comment_id}{timestamp}"
@@ -1091,4 +1094,4 @@ class RedcapToLoris:
                         self.log_error(method="populate_flag_table", details=comment_id)
                         num_error += 1
 
-        print(f"{int(num_flag/2) + num_added} entries in flag. {num_added} added. {num_error} errors.")
+        print(f"{int(num_flag/2) + num_added} entries in flag. {num_added} added. {num_error} errors.", flush=True)
