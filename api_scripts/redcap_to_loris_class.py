@@ -1095,3 +1095,14 @@ class RedcapToLoris:
                         num_error += 1
 
         print(f"{int(num_flag/2) + num_added} entries in flag. {num_added} added. {num_error} errors.", flush=True)
+
+    def truncate_all_instruments(self):
+        """
+        Truncates all insturment tables.  
+        """
+        for form in self.form_event_mapping:
+            try:
+                statement = f"TRUNCATE {form['form']}"
+                self.cursor.execute(statement)
+            except:
+                self.log_error(method="truncate_all_instruments", details=form['form'])
