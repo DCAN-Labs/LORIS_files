@@ -263,6 +263,35 @@ class RedcapToLoris:
             data[f"fields[{index}]"] = value
         
         self.records = self.get_data(data)
+
+    def get_filtered_records(self, **kwargs):
+        '''
+        Gets all records from the REDCap API. See get_data
+        Only gets fields that are present in the filtered_data_df, see generate_filtered_data_dict
+        Sets self.records to the returned value of get_data
+        '''
+        exclude = kwargs.get('exclude')
+        include = self.generate_filtered_data_dict(exclude=exclude)
+
+        data = {
+            'token': self.token,
+            'content': 'record',
+            'action': 'export',
+            'format': 'json',
+            'type': 'flat',
+            'csvDelimiter': '',
+            'rawOrLabel': 'raw',
+            'rawOrLabelHeaders': 'raw',
+            'exportCheckboxLabel': 'false',
+            'exportSurveyFields': 'false',
+            'exportDataAccessGroups': 'false',
+            'returnFormat': 'json'
+        }
+
+        for index, value in enumerate(include):
+            data[f"fields[{index}]"] = value
+        
+        self.records = self.get_data(data)
     
     def get_metadata(self):
         '''
@@ -1171,3 +1200,37 @@ class RedcapToLoris:
         audited_df = pd.read_csv("audit.csv")
         included_df = audited_df.loc[(audited_df["include"] == 1)]["field_name"]
         return included_df.to_list()
+    
+    def generate_filtered_data_dict(self, **kwargs):
+        """
+        Generates a dataframe that excludes data marked as identifying in REDCap
+
+        Key Word Arguments
+        ----------
+        exclude: list of strings
+            a list of instruments to exclude from the data transfer
+
+        Returns
+        ----------
+        fields_to_include: list of strings
+            a list of the fields that should be pulled from REDCap.
+        """
+        exclude = kwargs.get("exclude")
+
+        include = ["date_mdy", "datetime_mdy", "integer", "number", "time"]
+
+        metadata_df = self.generate_metadata_df()
+
+        metadata_df.drop(metadata_df.loc[metadata_df['form_name'].isin(exclude)].index, inplace=True)
+        metadata_df.drop(metadata_df.loc[metadata_df['field_type']=='descriptive'].index, inplace=True)
+        metadata_df.drop(metadata_df.loc[metadata_df['field_type']=='notes'].index, inplace=True)
+        metadata_df.drop(metadata_df.loc[metadata_df['identifier']=='y'].index, inplace=True)
+
+        filtered_data_df = metadata_df[~metadata_df['text_validation_type_or_show_slider_number'].isin(include)]
+
+        if self.verbose:
+            filtered_data_df.to_csv("outputs/filtered_data_dictionary.csv", index=False)
+        
+        fields_to_include = filtered_data_df['field_name'].to_list()
+
+        return fields_to_include
