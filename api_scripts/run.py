@@ -45,7 +45,7 @@ DataTransfer = RedcapToLoris()
 
 # get data from redcap API
 DataTransfer.get_metadata()
-DataTransfer.get_filtered_records(exclude=exclude)
+DataTransfer.get_filtered_records()
 DataTransfer.get_form_event_mapping()
 DataTransfer.get_report(report_id)
 DataTransfer.get_repeating_forms_events()

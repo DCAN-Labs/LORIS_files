@@ -264,14 +264,13 @@ class RedcapToLoris:
         
         self.records = self.get_data(data)
 
-    def get_filtered_records(self, **kwargs):
+    def get_filtered_records(self):
         '''
         Gets all records from the REDCap API. See get_data
         Only gets fields that are present in the filtered_data_df, see generate_filtered_data_dict
         Sets self.records to the returned value of get_data
         '''
-        exclude = kwargs.get('exclude')
-        include = self.generate_filtered_data_dict(exclude=exclude)
+        include = self.generate_filtered_data_dict()
 
         data = {
             'token': self.token,
@@ -1201,7 +1200,7 @@ class RedcapToLoris:
         included_df = audited_df.loc[(audited_df["include"] == 1)]["field_name"]
         return included_df.to_list()
     
-    def generate_filtered_data_dict(self, **kwargs):
+    def generate_filtered_data_dict(self):
         """
         Generates a dataframe that excludes data marked as identifying in REDCap
 
@@ -1215,13 +1214,11 @@ class RedcapToLoris:
         fields_to_include: list of strings
             a list of the fields that should be pulled from REDCap.
         """
-        exclude = kwargs.get("exclude")
 
         include = ["date_mdy", "datetime_mdy", "integer", "number", "time"]
 
         metadata_df = self.generate_metadata_df()
 
-        metadata_df.drop(metadata_df.loc[metadata_df['form_name'].isin(exclude)].index, inplace=True)
         metadata_df.drop(metadata_df.loc[metadata_df['field_type']=='descriptive'].index, inplace=True)
         metadata_df.drop(metadata_df.loc[metadata_df['field_type']=='notes'].index, inplace=True)
         metadata_df.drop(metadata_df.loc[metadata_df['identifier']=='y'].index, inplace=True)
