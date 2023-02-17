@@ -430,8 +430,6 @@ class RedcapToLoris:
             the label of the field to be used to find the candidate's sex in the record
         registration_center_field: string
             the label of the field to be used to find the candidat's study center
-        registration_date_field: string
-            the label of the field to be used to find the candidate's date of registration
         registration_project_id: int
             the registration project id in LORIS
         registration_center_lookup: dictionary
@@ -446,7 +444,6 @@ class RedcapToLoris:
         dob_field = kwargs.get("dob_field")
         sex_field = kwargs.get("sex_field")
         registration_center_field = kwargs.get("registration_center_field")
-        registration_date_field = kwargs.get("registration_date_field")
         registration_project_id = kwargs.get("registration_project_id")
         registration_center_lookup = kwargs.get("registration_center_lookup")
         sex_lookup = {
@@ -454,6 +451,7 @@ class RedcapToLoris:
             '2': 'Female',
             '': 'Other'
         }
+        today = datetime.date.today()
         candidate_info = {
             "CandID": self.generate_cand_id(),
             "PSCID": record['record_id'],
@@ -462,12 +460,12 @@ class RedcapToLoris:
             "RegistrationCenterID": registration_center_lookup[record[registration_center_field]],
             "RegistrationProjectID": registration_project_id,
             "Active": 'Y',
-            "Date_active": record[registration_date_field],
+            "Date_active": today,
             "RegisteredBy": 'redcapTransfer',
             "UserID": 'redcapTransfer',
-            "Date_registered": record[registration_date_field],
+            "Date_registered": today,
             "flagged_caveatemptor": 'false',
-            "Testdate": record[registration_date_field],
+            "Testdate": today,
             "Entity_type": 'Human'
         }
         return candidate_info
@@ -484,8 +482,6 @@ class RedcapToLoris:
             the label of the field to be used to find the candidate's sex in the record
         registration_center_field: string
             the label of the field to be used to find the candidat's study center
-        registration_date_field: string
-            the label of the field to be used to find the candidate's date of registration
         registration_project_id: int
             the registration project id in LORIS
         registration_center_lookup: dictionary
@@ -498,7 +494,6 @@ class RedcapToLoris:
         dob_field = kwargs.get("dob_field")
         sex_field = kwargs.get("sex_field")
         registration_center_field = kwargs.get("registration_center_field")
-        registration_date_field = kwargs.get("registration_date_field")
         registration_project_id = kwargs.get("registration_project_id", 1)
         registration_center_lookup = kwargs.get("registration_center_lookup")
 
@@ -507,14 +502,13 @@ class RedcapToLoris:
         num_added = 0
         num_error = 0
         for record in self.records:
-            if record["record_id"] not in self.pscids and record[registration_date_field]:
+            if record["record_id"] not in self.pscids and "test" not in record["record_id"].lower():
                 try:
                     candidate_info = self.get_cand_info(
                         record = record,
                         dob_field = dob_field,
                         sex_field = sex_field,
                         registration_center_field = registration_center_field,
-                        registration_date_field = registration_date_field,
                         registration_project_id = registration_project_id,
                         registration_center_lookup = registration_center_lookup
                     )

@@ -9,7 +9,6 @@ candidate_params = {
     'dob_field': 'child_dob',
     'sex_field': 'child_sex',
     'registration_center_field': 'research_site',
-    'registration_date_field': 'date_phone_screen',
     'registration_project_id': 1,
     'registration_center_lookup': {"1":2, "2":3}
 }
@@ -18,9 +17,9 @@ visits = [
     { "label": "Visit1", "match": "visit_1", "scan": False },
     { "label": "Visit2", "match": "visit_2", "scan": False },
     { "label": "MRIVisit1", "match": "mri_visit", "scan": True },
-    { "label": "MRIVisit2", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_scan_date' },
-    { "label": "MRIVisit3", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_scan_date' },
-    { "label": "MRIVisit4", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_scan_date' }
+    { "label": "MRIVisit2", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_subject_id' },
+    { "label": "MRIVisit3", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_subject_id' },
+    { "label": "MRIVisit4", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_subject_id' }
 ]
 
 report_id = 47678
