@@ -1233,12 +1233,12 @@ class RedcapToLoris:
         metadata_df.drop(metadata_df.loc[metadata_df['field_type']=='notes'].index, inplace=True)
         metadata_df.drop(metadata_df.loc[metadata_df['identifier']=='y'].index, inplace=True)
 
-        filtered_data_df = metadata_df[~metadata_df['text_validation_type_or_show_slider_number'].isin(include)]
+        metadata_df.drop(metadata_df.loc[(metadata_df['field_type']=='text') & (~metadata_df['text_validation_type_or_show_slider_number'].isin(include))].index, inplace=True)
 
         if self.verbose:
-            filtered_data_df.to_csv("outputs/filtered_data_dictionary.csv", index=False)
+            metadata_df.to_csv("outputs/filtered_data_dictionary.csv", index=False)
         
-        fields_to_include = filtered_data_df['field_name'].to_list()
+        fields_to_include = metadata_df['field_name'].to_list()
 
         return fields_to_include
 
