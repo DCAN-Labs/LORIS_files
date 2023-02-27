@@ -426,6 +426,7 @@ class RedcapToLoris:
             a single record from self.records
         dob_field: string
             the label of the field to be used to find the candidat's DoB in the record
+            if not set, DoB is set to 2001-01-01
         sex_field: string
             the label of the field to be used to find the candidate's sex in the record
         registration_center_field: string
@@ -452,10 +453,11 @@ class RedcapToLoris:
             '': 'Other'
         }
         today = datetime.date.today()
+        dob = self.jitter_dob(record[dob_field]) if dob_field else '2001-01-01'
         candidate_info = {
             "CandID": self.generate_cand_id(),
             "PSCID": record['record_id'],
-            "DoB": self.jitter_dob(record[dob_field]),
+            "DoB": dob,
             "Sex": sex_lookup[record[sex_field]],
             "RegistrationCenterID": registration_center_lookup[record[registration_center_field]],
             "RegistrationProjectID": registration_project_id,
@@ -812,7 +814,7 @@ class RedcapToLoris:
                             center_id = result[0]['RegistrationCenterID']
                             project_id = result[0]["RegistrationProjectID"]
                             subproject_id = get_subproject_function(subject)
-                            visit_date = record[date_field]
+                            visit_date = record[date_field] if date_field in record else '2001-01-01'
 
                             values.update({ 
                                 'CenterID': center_id,
@@ -981,19 +983,20 @@ class RedcapToLoris:
                 except Exception:
                     self.log_error(method="transfer_data", details=f"update {test_name}, {subject}")
                     num_error += 1
-                if record[f"{test_name}_complete"] == "2":
-                    flag_values = {
-                        "Data_entry": "Complete",
-                        "Administration": "All"
-                    }
-                    try:
-                        self.update(table="flag", fields=flag_values, where={ "CommentID": values["CommentID"]})
-                        updated_flag += 1
-                        if self.verbose:
-                            print(f"Updated flag: {test_name}, {subject}")
-                    except Exception:
-                        self.log_error(method="transfer_data", details=f"update flag: {test_name}, {subject}")
-                        num_error += 1
+                if f"{test_name}_complete" in record:
+                    if record[f"{test_name}_complete"] == "2":
+                        flag_values = {
+                            "Data_entry": "Complete",
+                            "Administration": "All"
+                        }
+                        try:
+                            self.update(table="flag", fields=flag_values, where={ "CommentID": values["CommentID"]})
+                            updated_flag += 1
+                            if self.verbose:
+                                print(f"Updated flag: {test_name}, {subject}")
+                        except Exception:
+                            self.log_error(method="transfer_data", details=f"update flag: {test_name}, {subject}")
+                            num_error += 1
         return updated_inst, updated_flag, num_error
 
     def populate_candidate_parameters(self, **kwargs):

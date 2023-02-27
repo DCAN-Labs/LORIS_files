@@ -6,7 +6,6 @@ exclude_error = ['family_medical_history_questionnaire', 'scapi']
 exclude_all = exclude + exclude_error
 
 candidate_params = {
-    'dob_field': 'child_dob',
     'sex_field': 'child_sex',
     'registration_center_field': 'research_site',
     'registration_project_id': 1,
