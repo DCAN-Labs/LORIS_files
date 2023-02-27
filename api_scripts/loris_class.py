@@ -345,9 +345,10 @@ class Loris:
         test_name_insert = f"INSERT IGNORE INTO test_names (Test_name, Full_name, Sub_group) VALUES ('{form}','{form}',1);"
         sql_lines = ''
         for question in self.metadata[form]:
-            sql_line = self.create_table_lines(question, self.metadata[form][question])
-            if sql_line:
-                sql_lines += sql_line
+            if self.metadata[form][question]["field_type"] != "descriptive":
+                sql_line = self.create_table_lines(question, self.metadata[form][question])
+                if sql_line:
+                    sql_lines += sql_line
         sql_string = table_line_start + meta_fields + sql_lines + table_line_end + test_name_insert
 
         if(file_output):

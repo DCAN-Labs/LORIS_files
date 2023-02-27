@@ -2,7 +2,7 @@ from redcap_to_loris_class import RedcapToLoris
 
 exclude = ['unsecured_email_authorization_form_umn_only', 'wu_phone_screen_consent', 'wu_phone_screen_consent_04_04_2022', 'wu_online_survey_consent', 'wu_online_survey_consent_04_04_2022', 'unsecured_email_authorization_form_wu_only', 'umn_phone_screen_consent', 'umn_phone_screen_consent_04_04_2022', 'umn_phone_screen_consent_08_09_2022', 'data_collection_info', 'phonescreen', 'teacher_intake_info', 'coordinator_customization_for_teacher', 'umn_online_survey_consent', 'umn_online_survey_consent_04_04_2022', 'umn_online_survey_consent_08_09_2022', 'consent_tracker', 'mock_mri_survey', 'vineland_tracker']
 
-exclude_error = ['family_medical_history_questionnaire', 'scapi']
+exclude_error = ['scapi']
 exclude_all = exclude + exclude_error
 
 candidate_params = {
