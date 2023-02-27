@@ -863,6 +863,7 @@ class RedcapToLoris:
         visits = kwargs.get("visits")
         expected_repeat_instruments = kwargs.get("expected_repeat_instruments")
         handle_subject_ids = kwargs.get("handle_subject_ids", lambda x: x)
+        report_id = kwargs.get("report_id")
 
         num_flag = self.query(table="flag", fields=["count(*)"])[0]["count(*)"]
         updated_flag = 0
@@ -894,7 +895,7 @@ class RedcapToLoris:
                 self.log_error(method="transfer_data", details=f"Visit lookup for {record['record_id']}")
                 num_error += 1
 
-            updated_inst, updated_flag, num_error = self.update_data(handle_subject_ids=handle_subject_ids, record=record, multi_selects=multi_selects, visit_label=visit_label, updated_inst=updated_inst, updated_flag=updated_flag, num_error=num_error)
+            updated_inst, updated_flag, num_error = self.update_data(handle_subject_ids=handle_subject_ids, record=record, multi_selects=multi_selects, visit_label=visit_label, report_id=report_id, updated_inst=updated_inst, updated_flag=updated_flag, num_error=num_error)
 
         print(f"{int(num_flag/2)} tests in flag. {updated_inst} instrument entries updated. {updated_flag} flag entries updated. {num_error} errors.", flush=True)
 
@@ -937,14 +938,18 @@ class RedcapToLoris:
         updated_inst = kwargs.get("updated_inst")
         updated_flag = kwargs.get("updated_flag")
         num_error = kwargs.get("num_error")
+        report_id = kwargs.get("report_id")
 
         subject = handle_subject_ids(record["record_id"])
         result = self.query(table="candidate", fields=["CandID", "RegistrationCenterID", "RegistrationProjectID"], where={"PSCID": subject})
         try:
             cand_id = result[0]["CandID"]
         except:
-            self.log_error(method="transfer_data", details=f"CandID lookup for {subject}")
-            num_error += 1
+            if "test" in subject.lower():
+                pass
+            else:
+                self.log_error(method="transfer_data", details=f"CandID lookup for {subject}")
+                num_error += 1
             return updated_inst, updated_flag, num_error
         result = self.query(table="session", fields=["ID", "SubprojectID"], where={"CandID": cand_id, "Visit_label": visit_label })
         try:
@@ -987,20 +992,21 @@ class RedcapToLoris:
                 except Exception:
                     self.log_error(method="transfer_data", details=f"update {test_name}, {subject}")
                     num_error += 1
-                if f"{test_name}_complete" in record:
-                    if record[f"{test_name}_complete"] == "2":
-                        flag_values = {
-                            "Data_entry": "Complete",
-                            "Administration": "All"
-                        }
-                        try:
-                            self.update(table="flag", fields=flag_values, where={ "CommentID": values["CommentID"]})
-                            updated_flag += 1
-                            if self.verbose:
-                                print(f"Updated flag: {test_name}, {subject}")
-                        except Exception:
-                            self.log_error(method="transfer_data", details=f"update flag: {test_name}, {subject}")
-                            num_error += 1
+                for report in self.reports[report_id]:
+                    if f"{test_name}_complete" in report:
+                        if report['record_id'] == subject and report[f"{test_name}_complete"] == "2":
+                            flag_values = {
+                                "Data_entry": "Complete",
+                                "Administration": "All"
+                            }
+                            try:
+                                self.update(table="flag", fields=flag_values, where={ "CommentID": values["CommentID"]})
+                                updated_flag += 1
+                                if self.verbose:
+                                    print(f"Updated flag: {test_name}, {subject}")
+                            except Exception:
+                                self.log_error(method="transfer_data", details=f"update flag: {test_name}, {subject}")
+                                num_error += 1
         return updated_inst, updated_flag, num_error
 
     def populate_candidate_parameters(self, **kwargs):
@@ -1073,8 +1079,11 @@ class RedcapToLoris:
                     try:
                         cand_id = result[0]["CandID"]
                     except:
-                        self.log_error(method="populate_candidate_parameters", details=f"CandID lookup for {subject}")
-                        num_error += 1
+                        if "test" in subject.lower():
+                            pass
+                        else:
+                            self.log_error(method="populate_candidate_parameters", details=f"CandID lookup for {subject}")
+                            num_error += 1
                         continue
 
                     to_insert = { 

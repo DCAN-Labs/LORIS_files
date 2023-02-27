@@ -59,7 +59,7 @@ DataTransfer.populate_session_table_override(visits=visits, get_subproject_funct
 DataTransfer.populate_flag_table(visits=visits)
 
 # import data
-DataTransfer.transfer_data(visits=visits, expected_repeat_instruments=expected_repeat_instruments, handle_subject_ids=handle_subject_ids)
+DataTransfer.transfer_data(visits=visits, expected_repeat_instruments=expected_repeat_instruments, handle_subject_ids=handle_subject_ids, report_id=report_id)
 
 DataTransfer.commit()
 
