@@ -498,13 +498,15 @@ class RedcapToLoris:
         registration_center_field = kwargs.get("registration_center_field")
         registration_project_id = kwargs.get("registration_project_id", 1)
         registration_center_lookup = kwargs.get("registration_center_lookup")
+        handle_subject_ids = kwargs.get("handle_subject_ids")
 
         self.get_existing_candidates()
         num_old = len(self.cand_ids)
         num_added = 0
         num_error = 0
         for record in self.records:
-            if record["record_id"] not in self.pscids and "test" not in record["record_id"].lower():
+            record_id = handle_subject_ids(record["record_id"])
+            if record_id not in self.pscids and "test" not in record["record_id"].lower():
                 try:
                     candidate_info = self.get_cand_info(
                         record = record,
@@ -515,6 +517,7 @@ class RedcapToLoris:
                         registration_center_lookup = registration_center_lookup
                     )
                     self.insert('candidate', candidate_info)
+                    self.pscids.append(record["record_id"])
                     if self.verbose:
                         print(f"Added candidate: {record['record_id']}")
                     num_added += 1
@@ -718,9 +721,7 @@ class RedcapToLoris:
                     try:
                         visit_date = functools.reduce(lambda a, b: a if a < b else b, timestamps)
                     except Exception:
-                        self.log_error(method="functools.reduce() in populate_session_table", details=f"{subject}, {visit}")
-                        num_error += 1
-                        continue
+                        visit_date = '2001-01-01'
 
                     values.update({ 
                         'CenterID': center_id,
@@ -1149,17 +1150,6 @@ class RedcapToLoris:
 
         print(f"{int(num_flag/2) + num_added} entries in flag. {num_added} added. {num_error} errors.", flush=True)
 
-    def truncate_all_instruments(self):
-        """
-        Truncates all insturment tables.  
-        """
-        for form in self.form_event_mapping:
-            try:
-                statement = f"TRUNCATE {form['form']}"
-                self.cursor.execute(statement)
-            except:
-                self.log_error(method="truncate_all_instruments", details=form['form'])
-
     ## PHI protection
     def generate_metadata_df(self):
         """
@@ -1242,3 +1232,31 @@ class RedcapToLoris:
         fields_to_include = filtered_data_df['field_name'].to_list()
 
         return fields_to_include
+
+    ## Resetting the database
+
+    def truncate_all_instruments(self):
+        """
+        Truncates all insturment tables.  
+        """
+        for form in self.form_event_mapping:
+            try:
+                statement = f"TRUNCATE {form['form']}"
+                self.cursor.execute(statement)
+            except:
+                self.log_error(method="truncate_all_instruments", details=form['form'])
+
+    def remove_redcap_data(self):
+        """
+        truncates flag, session, candidate and instrument tables.
+        """
+        self.cursor.execute("SET FOREIGN_KEY_CHECKS=0")
+        self.get_form_event_mapping()
+        self.truncate_all_instruments()
+        tables = ['flag', 'session', 'candidate']
+        for table in tables:
+            try:
+                statement = f"TRUNCATE {table}"
+                self.cursor.execute(statement)
+            except:
+                self.log_error(method="remove_redcap_data", details=table)

@@ -53,7 +53,7 @@ DataTransfer.populate_visit_table(visits=visits)
 DataTransfer.populate_test_battery_table(exclude=exclude_all, visits=visits, expected_repeat_instruments=expected_repeat_instruments)
 
 # add new candidates, and start new visits
-DataTransfer.populate_candidate_table(**candidate_params)
+DataTransfer.populate_candidate_table(**candidate_params, handle_subject_ids=handle_subject_ids)
 DataTransfer.populate_session_table(visits=visits, get_subproject_function=get_subproject_function, report_id=report_id, expected_repeat_instruments=expected_repeat_instruments)
 DataTransfer.populate_session_table_override(visits=visits, get_subproject_function=get_subproject_function, expected_repeat_instruments=expected_repeat_instruments)
 DataTransfer.populate_flag_table(visits=visits)
