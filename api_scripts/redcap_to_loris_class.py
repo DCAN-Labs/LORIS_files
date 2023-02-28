@@ -271,6 +271,7 @@ class RedcapToLoris:
         Sets self.records to the returned value of get_data
         '''
         include = self.generate_filtered_data_dict()
+        include.insert(0, "record_id")
 
         data = {
             'token': self.token,

@@ -16,9 +16,9 @@ visits = [
     { "label": "Visit1", "match": "visit_1", "scan": False },
     { "label": "Visit2", "match": "visit_2", "scan": False },
     { "label": "MRIVisit1", "match": "mri_visit", "scan": True },
-    { "label": "MRIVisit2", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_subject_id' },
-    { "label": "MRIVisit3", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_subject_id' },
-    { "label": "MRIVisit4", "scan": True, "date_field": 'mri_scan_date', "override": 'mri_subject_id' }
+    { "label": "MRIVisit2", "scan": True, "date_field": 'mri_scan_date', "override": 'scan_site' },
+    { "label": "MRIVisit3", "scan": True, "date_field": 'mri_scan_date', "override": 'scan_site' },
+    { "label": "MRIVisit4", "scan": True, "date_field": 'mri_scan_date', "override": 'scan_site' }
 ]
 
 report_id = 47678
