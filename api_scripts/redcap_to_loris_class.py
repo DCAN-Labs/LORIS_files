@@ -529,6 +529,158 @@ class RedcapToLoris:
 
     ## make instruments
 
+    def metadata_to_dict(self, **kwargs):
+        """
+        transforms metadata from REDCap into a dictionary with a key for each form.
+        Sets self.sorted_metadata to the dictionary.
+
+        Key Word Arguments
+        ----------
+        exclude: list
+            list of form names to exclude
+        
+        Returns
+        ----------
+        None
+        """
+        exclude = kwargs.get("exclude")
+        include = self.generate_filtered_data_dict()
+
+        filtered_metadata = [metadata for metadata in self.metadata if metadata["field_name"] in include and metadata["form_name"] not in exclude]
+        sorted_metadata = {metadata["form_name"]: {field["field_name"]: field for field in filtered_metadata if field["form_name"] == metadata["form_name"]} for metadata in filtered_metadata}
+
+        if self.verbose:
+            with open(f'outputs/json/sortedMetadata.json', 'w+') as file:
+                json.dump(sorted_metadata, file, indent=4)
+        self.sorted_metadata = sorted_metadata
+
+    def field_type_lookup(self, question):
+        """
+        parses a single metadata field and maps the REDCap data type to a SQL datatype
+
+        Arguments
+        ----------
+        question: dictionary
+            a single field's metadata entry
+
+        Returns
+        ----------
+        field_type: string
+            a SQL data type
+        """
+        field_type = ''
+        if (question['text_validation_type_or_show_slider_number'] == 'date_mdy'):
+            field_type = 'date'
+        elif (question['text_validation_type_or_show_slider_number'] == 'integer'):
+            field_type = 'int'
+        elif (question['text_validation_type_or_show_slider_number'] == 'number'):
+            field_type = 'varchar(255)'
+        else:
+            field_type_lookup = {
+                'radio': 'enum',
+                'text': 'varchar(255)',
+                'descriptive':'',
+                'dropdown':'enum',
+                'notes':'text',
+                'calc':'int',
+                'yesno':'enum',
+                'checkbox':'varchar(255)'
+                }
+            field_type = field_type_lookup[question['field_type']]
+        return field_type
+    
+    def make_enum_array(self, question):
+        """
+        parses a single metadata field and if it would be an enum formats the REDCap choices
+
+        Arguments
+        ----------
+        question: dictionary
+            a single field's metadata entry
+
+        Returns
+        ----------
+        options_sql: list of strings
+            a list of enum values for sql
+        options_php: list of strings
+            a list of descriptions for the front end of LORIS
+        """
+        options = question['select_choices_or_calculations']
+        field_type = question['field_type']
+
+        if self.field_type_lookup(question) == 'enum':
+            options_php = []
+            options_sql = []
+            if field_type == 'yesno':
+                options_sql = [ '0', '1' ]
+                options_php = ['No', 'Yes']
+            else:
+                options_sql = [option.split(',')[0] for option in options.split('|')]
+                options_php = [option.split(',')[1] for option in options.split('|')]
+
+            return options_sql, options_php
+        else:
+            return '', ''
+    
+    def metadata_to_instrument(self, **kwargs):
+        """
+        parses a single form's metadata and transforms it into the format accepted by the instrument builder.
+
+        Key Word Arguments
+        ----------
+        form: string
+            the name of a REDCap form
+
+        Returns
+        ----------
+        instrument_data: dictionary
+            a dictionary that is accepted by the instrument builder
+        """
+        form = kwargs.get("form")
+        instrument = self.sorted_metadata[form]
+
+        instrument_data = {
+            "instrument_name": form,
+            "instrument_name_loris": form,
+            "pages": {},
+            "fields": {
+                f"field{index + 1}": { 
+                    "field_name_loris": field["field_name"],
+                    "field_front_text_php": field["field_label"],
+                    "field_type_loris": self.field_type_lookup(field),
+                    "enum_values_loris": self.make_enum_array(field)[0],
+                    "enum_values_php": self.make_enum_array(field)[1],
+                    "field_include_not_answered": False,
+                    "field_default_value": False,
+                    "associated_status_field": False,
+                    "page_php": 0,
+                    "hidden_on_php": False,
+                    "group_php": False,
+                    "rule_php": False,
+                    "note_php": False
+                } for index, field in enumerate(instrument.values())
+            },
+            "groups": {}
+            }
+        
+        # print(json.dumps(instrument_data, indent=4))
+        return instrument_data
+
+    def all_metadata_to_instruments(self, **kwargs):
+        """
+        creates an instrument builder dictionary for all REDCap forms in sorted_metadata
+
+        Returns
+        ----------
+        instruments: list of dictionaries
+            a collection of dictionaires accepted by the instrument builder
+        """
+        exclude = kwargs.get("exclude")
+        self.metadata_to_dict(exclude=exclude)
+
+        instruments = [self.metadata_to_instrument(form=instrument) for instrument in self.sorted_metadata.keys()]
+        # print(json.dumps(instruments, indent=4))
+        return instruments
 
     ## set up project in database
 
