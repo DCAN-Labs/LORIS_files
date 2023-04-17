@@ -13,6 +13,7 @@ candidate_params = {
 }
 
 visits = [
+    { "label": "Phonescreen", "match": "phone_screen", "scan": False},
     { "label": "Visit1", "match": "visit_1", "scan": False },
     { "label": "Visit2", "match": "visit_2", "scan": False },
     { "label": "MRIVisit1", "match": "mri_visit", "scan": True },
@@ -50,7 +51,7 @@ DataTransfer.get_repeating_forms_events()
 
 # setup LORIS tables for data ingestion
 DataTransfer.populate_visit_table(visits=visits)
-DataTransfer.populate_test_battery_table(exclude=exclude_all, visits=visits, expected_repeat_instruments=expected_repeat_instruments)
+DataTransfer.populate_test_battery_table(visits=visits, expected_repeat_instruments=expected_repeat_instruments)
 
 # add new candidates, and start new visits
 DataTransfer.populate_candidate_table(**candidate_params, handle_subject_ids=handle_subject_ids)

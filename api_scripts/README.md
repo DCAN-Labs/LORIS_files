@@ -7,12 +7,6 @@ This folder primarily holds python files that pull data from REDCap using the AP
 Used to handle data that the parent fills out about the child's siblings. As these are all repeat records in REDCap, a special method is needed to find the data a home in LORIS.
 - Right now this script has to be run after running run.py but may be integrated in the future.
 
-## loris_class.py
-
-Depricated. (almost) Everything that this does is done by redcap_to_loris.py.
-This is messier and less scalable.
-- Only use this for the instrument generation methods as these have not been implemented in the new class.
-
 ## LORIS_php_instrument_template.html.jinja2
 
 This file was originally written by a former E-Lab data manager and adapted for use here.
@@ -43,11 +37,6 @@ When run it should have an output similar to the following:
     468 sessions in session. 466 unchanged, 2 added. 0 errors.
     5645 entries in flag. 495 added. 0 errors.
     5645 tests in flag. 34 instrument entries updated. 34 flag entries updated. 4 errors.
-
-## setup_project.py
-
-Depricated. Like run.py but using the old depricated loris_class.py methods.
-Can use some of the code to call instrument generation methods.
 
 ## config.py
 
