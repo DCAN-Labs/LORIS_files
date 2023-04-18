@@ -1,9 +1,25 @@
 from redcap_to_loris_class import RedcapToLoris
 
-exclude = ['unsecured_email_authorization_form_umn_only', 'wu_phone_screen_consent', 'wu_phone_screen_consent_04_04_2022', 'wu_online_survey_consent', 'wu_online_survey_consent_04_04_2022', 'unsecured_email_authorization_form_wu_only', 'umn_phone_screen_consent', 'umn_phone_screen_consent_04_04_2022', 'umn_phone_screen_consent_08_09_2022', 'data_collection_info', 'phonescreen', 'teacher_intake_info', 'coordinator_customization_for_teacher', 'umn_online_survey_consent', 'umn_online_survey_consent_04_04_2022', 'umn_online_survey_consent_08_09_2022', 'consent_tracker', 'mock_mri_survey', 'vineland_tracker']
-
-exclude_error = ['scapi']
-exclude_all = exclude + exclude_error
+exclude = [
+    'unsecured_email_authorization_form_umn_only',
+    'wu_phone_screen_consent',
+    'wu_phone_screen_consent_04_04_2022',
+    'wu_online_survey_consent',
+    'wu_online_survey_consent_04_04_2022',
+    'unsecured_email_authorization_form_wu_only',
+    'umn_phone_screen_consent',
+    'umn_phone_screen_consent_04_04_2022',
+    'umn_phone_screen_consent_08_09_2022',
+    'data_collection_info',
+    'teacher_intake_info',
+    'coordinator_customization_for_teacher',
+    'umn_online_survey_consent',
+    'umn_online_survey_consent_04_04_2022',
+    'umn_online_survey_consent_08_09_2022',
+    'consent_tracker',
+    'mock_mri_survey',
+    'vineland_tracker'
+]
 
 candidate_params = {
     'sex_field': 'child_sex',
@@ -51,7 +67,7 @@ DataTransfer.get_repeating_forms_events()
 
 # setup LORIS tables for data ingestion
 DataTransfer.populate_visit_table(visits=visits)
-DataTransfer.populate_test_battery_table(visits=visits, expected_repeat_instruments=expected_repeat_instruments)
+DataTransfer.populate_test_battery_table(visits=visits, exclude=exclude, expected_repeat_instruments=expected_repeat_instruments)
 
 # add new candidates, and start new visits
 DataTransfer.populate_candidate_table(**candidate_params, handle_subject_ids=handle_subject_ids)
