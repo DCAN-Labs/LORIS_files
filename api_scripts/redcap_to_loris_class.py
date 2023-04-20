@@ -975,7 +975,7 @@ class RedcapToLoris:
                 elif value in multi_selects:
                     choice_string = list(filter(lambda field: field["field_name"] == value, self.metadata))[0]["select_choices_or_calculations"]
                     choices = { choice.split(", ")[0]: choice.split(", ")[1] for choice in choice_string.split(" | ") }
-                    multi_select_values = [choices[choice] for choice in choices if record[f"{value}___{choice}"] == "1"]
+                    multi_select_values = [choices[choice] for choice in choices if record[f"{value}___{choice.lower()}"] == "1"]
                     if multi_select_values:
                         values[value] = ",".join(multi_select_values)
                         empty = False
