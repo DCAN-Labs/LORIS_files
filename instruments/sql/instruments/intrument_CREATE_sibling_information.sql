@@ -1,0 +1,20 @@
+CREATE TABLE `sibling_information` (
+    `CommentID` varchar(255) NOT NULL DEFAULT '',
+    `UserID` varchar(255) DEFAULT NULL,
+    `sib_y_n` enum("","0","1"),
+    `sib_1_gender` enum("","0","1","2","3","4","5","6"),
+    `sib_y_n_2` enum("","0","1"),
+    `sib_1_gender_2` enum("","0","1","2","3","4","5","6"),
+    `sib_y_n_3` enum("","0","1"),
+    `sib_1_gender_3` enum("","0","1","2","3","4","5","6"),
+    `sib_y_n_4` enum("","0","1"),
+    `sib_1_gender_4` enum("","0","1","2","3","4","5","6"),
+    `sib_y_n_5` enum("","0","1"),
+    `sib_1_gender_5` enum("","0","1","2","3","4","5","6"),
+    `sib_y_n_6` enum("","0","1"),
+    `sib_1_gender_6` enum("","0","1","2","3","4","5","6"),
+    `sib_y_n_7` enum("","0","1"),
+    `sib_1_gender_7` enum("","0","1","2","3","4","5","6"),
+    `sib_y_n_8` enum("","0","1"),
+    PRIMARY KEY (`CommentID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
