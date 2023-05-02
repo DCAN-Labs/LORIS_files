@@ -1267,3 +1267,30 @@ class RedcapToLoris:
                 self.cursor.execute(statement)
             except:
                 self.log_error(method="remove_redcap_data", details=table)
+
+    ## Create SQL tables
+
+    def create_sql_table(self, **kwargs):
+        '''
+        gets a create table statement from sql and puts it in a file
+        '''
+        table = kwargs.get('table')
+
+        try:
+            statement = f"SHOW CREATE TABLE {table}"
+            self.cursor.execute(statement)
+            result = [row for row in self.cursor]
+            create = result[0]["Create Table"]
+            with open(f'outputs/sql/CREATE_{table}.sql', 'w+') as file:
+                file.write(create)
+
+        except:
+            self.log_error(method="create_sql_table", details=table)
+
+    def create_all_sql_tables(self):
+        '''
+        generates sql create table file for all instruments
+        '''
+        for form in self.form_event_mapping:
+            table = form["form"]
+            self.create_sql_table(table=table)
