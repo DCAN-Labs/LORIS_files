@@ -7,11 +7,6 @@ This folder primarily holds python files that pull data from REDCap using the AP
 Used to handle data that the parent fills out about the child's siblings. As these are all repeat records in REDCap, a special method is needed to find the data a home in LORIS.
 - Right now this script has to be run after running run.py but may be integrated in the future.
 
-## LORIS_php_instrument_template.html.jinja2
-
-This file was originally written by a former E-Lab data manager and adapted for use here.
-- Used by the create_instrument_php method in loris_class.py
-
 ## redcap_to_loris_class.py
 
 This file holds the class that defines the methods used to transfer data.
