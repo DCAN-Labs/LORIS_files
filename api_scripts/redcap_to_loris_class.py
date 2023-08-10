@@ -5,7 +5,6 @@ import json
 import traceback
 import functools
 import pandas as pd
-from jinja2 import Template
 from config import config, token, api_route
 from random import randint
 
